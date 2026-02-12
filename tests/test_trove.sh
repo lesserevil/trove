@@ -262,8 +262,12 @@ test_path_traversal_rejected() {
   assert_ne "0" "$exit_code" "path traversal (../) should be rejected" || ok=false
 
   exit_code=0
-  run_as alice create-secret NAME="foo/bar" FILE="$TEST_TMPDIR/evil.txt" >/dev/null 2>&1 || exit_code=$?
-  assert_ne "0" "$exit_code" "path traversal (/) should be rejected" || ok=false
+  run_as alice create-secret NAME="/absolute/path" FILE="$TEST_TMPDIR/evil.txt" >/dev/null 2>&1 || exit_code=$?
+  assert_ne "0" "$exit_code" "absolute path (/) should be rejected" || ok=false
+
+  exit_code=0
+  run_as alice create-secret NAME="../../escape" FILE="$TEST_TMPDIR/evil.txt" >/dev/null 2>&1 || exit_code=$?
+  assert_ne "0" "$exit_code" "multi-level path traversal should be rejected" || ok=false
 
   $ok && pass_test
   teardown_test_env

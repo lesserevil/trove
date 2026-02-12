@@ -350,7 +350,8 @@ new-user:
 ## create-secret: Encrypt a file and store it as a secret (NAME= FILE=)
 create-secret:
 	@test -n "$(NAME)" || { echo "Error: NAME= is required" >&2; exit 1; }
-	@echo "$(NAME)" | grep -qE '^[a-zA-Z0-9._-]+$$' || { echo "Error: Invalid NAME '$(NAME)' — must match [a-zA-Z0-9._-]+ (no @ or /)" >&2; exit 1; }
+	@echo "$(NAME)" | grep -qE '^[a-zA-Z0-9._/-]+$$' || { echo "Error: Invalid NAME '$(NAME)' — must match [a-zA-Z0-9._/-]+" >&2; exit 1; }
+	@echo "$(NAME)" | grep -qE '\.\./|^\.\.|^/' && { echo "Error: Invalid NAME '$(NAME)' — path traversal not allowed" >&2; exit 1; } || true
 	@test -n "$(FILE)" || { echo "Error: FILE= is required" >&2; exit 1; }
 	@test -f "$(FILE)" || { echo "Error: FILE not found: $(FILE)" >&2; exit 1; }
 	@test -r "$(FILE)" || { echo "Error: FILE not readable: $(FILE)" >&2; exit 1; }
@@ -364,6 +365,7 @@ create-secret:
 	_TMPDIR=$$(mktemp -d); \
 	KEY_HEX=$$(openssl rand -hex 32) || { echo "Error: Failed to generate AES key" >&2; exit 1; }; \
 	IV_HEX=$$(openssl rand -hex 16) || { echo "Error: Failed to generate IV" >&2; exit 1; }; \
+	mkdir -p "$$(dirname "$$SECRET_DIR")" || { echo "Error: Failed to create parent directories" >&2; exit 1; }; \
 	mkdir -p "$$SECRET_DIR" || { echo "Error: Failed to create secret directory" >&2; exit 1; }; \
 	echo "$$IV_HEX" > "$$SECRET_DIR/secret.enc" && \
 	openssl enc -aes-256-cbc -nosalt -K "$$KEY_HEX" -iv "$$IV_HEX" -in "$(FILE)" >> "$$SECRET_DIR/secret.enc" || \
@@ -381,7 +383,8 @@ create-secret:
 ## read-secret: Decrypt and print a secret to stdout (NAME=)
 read-secret:
 	@test -n "$(NAME)" || { echo "Error: NAME= is required" >&2; exit 1; }
-	@echo "$(NAME)" | grep -qE '^[a-zA-Z0-9._-]+$$' || { echo "Error: Invalid NAME '$(NAME)' — must match [a-zA-Z0-9._-]+ (no @ or /)" >&2; exit 1; }
+	@echo "$(NAME)" | grep -qE '^[a-zA-Z0-9._/-]+$$' || { echo "Error: Invalid NAME '$(NAME)' — must match [a-zA-Z0-9._/-]+" >&2; exit 1; }
+	@echo "$(NAME)" | grep -qE '\.\./|^\.\.|^/' && { echo "Error: Invalid NAME '$(NAME)' — path traversal not allowed" >&2; exit 1; } || true
 	@test -d "$(SECRETS_DIR)/$(NAME)" || { echo "Error: Secret '$(NAME)' does not exist" >&2; exit 1; }
 	@test -f "$(SECRETS_DIR)/$(NAME)/$(TROVE_USER).key.enc" || { echo "Error: Access denied — user '$(TROVE_USER)' does not have access to secret '$(NAME)'" >&2; exit 1; }
 	@_cleanup() { \
@@ -401,7 +404,8 @@ read-secret:
 ## grant-access: Give a user access to a secret (NAME= USER=)
 grant-access:
 	@test -n "$(NAME)" || { echo "Error: NAME= is required" >&2; exit 1; }
-	@echo "$(NAME)" | grep -qE '^[a-zA-Z0-9._-]+$$' || { echo "Error: Invalid NAME '$(NAME)' — must match [a-zA-Z0-9._-]+ (no @ or /)" >&2; exit 1; }
+	@echo "$(NAME)" | grep -qE '^[a-zA-Z0-9._/-]+$$' || { echo "Error: Invalid NAME '$(NAME)' — must match [a-zA-Z0-9._/-]+" >&2; exit 1; }
+	@echo "$(NAME)" | grep -qE '\.\./|^\.\.|^/' && { echo "Error: Invalid NAME '$(NAME)' — path traversal not allowed" >&2; exit 1; } || true
 	@test -n "$(USER)" || { echo "Error: USER= is required" >&2; exit 1; }
 	@echo "$(USER)" | grep -qE '^[a-zA-Z0-9._@-]+$$' || { echo "Error: Invalid USER '$(USER)' — must match [a-zA-Z0-9._@-]+" >&2; exit 1; }
 	@test -d "$(SECRETS_DIR)/$(NAME)" || { echo "Error: Secret '$(NAME)' does not exist" >&2; exit 1; }
@@ -428,7 +432,8 @@ grant-access:
 ## revoke-access: Remove a user's access to a secret (NAME= USER=)
 revoke-access:
 	@test -n "$(NAME)" || { echo "Error: NAME= is required" >&2; exit 1; }
-	@echo "$(NAME)" | grep -qE '^[a-zA-Z0-9._-]+$$' || { echo "Error: Invalid NAME '$(NAME)' — must match [a-zA-Z0-9._-]+ (no @ or /)" >&2; exit 1; }
+	@echo "$(NAME)" | grep -qE '^[a-zA-Z0-9._/-]+$$' || { echo "Error: Invalid NAME '$(NAME)' — must match [a-zA-Z0-9._/-]+" >&2; exit 1; }
+	@echo "$(NAME)" | grep -qE '\.\./|^\.\.|^/' && { echo "Error: Invalid NAME '$(NAME)' — path traversal not allowed" >&2; exit 1; } || true
 	@test -n "$(USER)" || { echo "Error: USER= is required" >&2; exit 1; }
 	@echo "$(USER)" | grep -qE '^[a-zA-Z0-9._@-]+$$' || { echo "Error: Invalid USER '$(USER)' — must match [a-zA-Z0-9._@-]+" >&2; exit 1; }
 	@test -f "$(SECRETS_DIR)/$(NAME)/$(USER).key.enc" || { echo "Error: User '$(USER)' does not have access to secret '$(NAME)'" >&2; exit 1; }
@@ -442,12 +447,13 @@ revoke-access:
 # list-secrets: List all secrets with user access counts
 ## list-secrets: List all secrets and their access counts
 list-secrets:
-	@if [ -d "$(SECRETS_DIR)" ] && [ -n "$$(ls -A $(SECRETS_DIR) 2>/dev/null)" ]; then \
-	  for secret_dir in $(SECRETS_DIR)/*/; do \
-	    secret_name=$$(basename "$$secret_dir"); \
-	    user_count=$$(find "$$secret_dir" -name "*.key.enc" | wc -l); \
+	@if [ -d "$(SECRETS_DIR)" ] && [ -n "$$(find $(SECRETS_DIR) -name 'secret.enc' 2>/dev/null)" ]; then \
+	  find $(SECRETS_DIR) -name 'secret.enc' | while read secret_file; do \
+	    secret_dir=$$(dirname "$$secret_file"); \
+	    secret_name=$$(echo "$$secret_dir" | sed "s|^$(SECRETS_DIR)/||"); \
+	    user_count=$$(find "$$secret_dir" -name "*.key.enc" | wc -l | tr -d ' '); \
 	    echo "$$secret_name ($$user_count users)"; \
-	  done; \
+	  done | sort; \
 	else \
 	  echo "No secrets found"; \
 	fi
@@ -468,7 +474,8 @@ list-users:
 ## delete-secret: Permanently delete a secret (NAME=)
 delete-secret:
 	@test -n "$(NAME)" || { echo "Error: NAME= is required" >&2; exit 1; }
-	@echo "$(NAME)" | grep -qE '^[a-zA-Z0-9._-]+$$' || { echo "Error: Invalid NAME '$(NAME)' — must match [a-zA-Z0-9._-]+ (no @ or /)" >&2; exit 1; }
+	@echo "$(NAME)" | grep -qE '^[a-zA-Z0-9._/-]+$$' || { echo "Error: Invalid NAME '$(NAME)' — must match [a-zA-Z0-9._/-]+" >&2; exit 1; }
+	@echo "$(NAME)" | grep -qE '\.\./|^\.\.|^/' && { echo "Error: Invalid NAME '$(NAME)' — path traversal not allowed" >&2; exit 1; } || true
 	@test -d "$(SECRETS_DIR)/$(NAME)" || { echo "Error: Secret '$(NAME)' does not exist" >&2; exit 1; }
 	@rm -rf "$(SECRETS_DIR)/$(NAME)" || { echo "Error: Failed to delete secret '$(NAME)'" >&2; exit 1; }
 	@echo "Secret '$(NAME)' deleted"
