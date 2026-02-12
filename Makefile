@@ -17,11 +17,38 @@ TROVE_USER := $(or $(PM_USER),$(shell \
   fi \
 ))
 
-.PHONY: check-deps init _generate-key _generate-iv _encrypt-content _decrypt-content _encrypt-key-for-user _decrypt-key test-crypto add-user create-secret read-secret grant-access revoke-access list-secrets list-users delete-secret test
+.PHONY: help check-deps init _generate-key _generate-iv _encrypt-content _decrypt-content _encrypt-key-for-user _decrypt-key test-crypto add-user generate-key import-key new-user create-secret read-secret grant-access revoke-access list-secrets list-users delete-secret test
 
+## help: Show this help message
+help:
+	@echo "Usage: make <target> [VARS]"
+	@echo ""
+	@echo "Targets:"
+	@grep -E '^## ' $(MAKEFILE_LIST) | sed 's/^## /  /'
+	@echo ""
+	@echo "Variables:"
+	@echo "  NAME=<name>       Secret or user name"
+	@echo "  FILE=<path>       Path to file to encrypt"
+	@echo "  KEY=<path>        Path to GPG public key file"
+	@echo "  USER=<username>   Target user for grant/revoke"
+	@echo ""
+	@echo "Examples:"
+	@echo "  make check-deps"
+	@echo "  make init"
+	@echo "  make add-user NAME=alice KEY=alice.pub"
+	@echo "  make create-secret NAME=api-key FILE=secret.txt"
+	@echo "  make read-secret NAME=api-key"
+	@echo "  make grant-access NAME=api-key USER=bob"
+	@echo "  make revoke-access NAME=api-key USER=bob"
+	@echo "  make list-secrets"
+	@echo "  make list-users"
+	@echo "  make delete-secret NAME=api-key"
+
+## test: Run the test suite
 test:
 	@bash tests/test_trove.sh
 
+## check-deps: Verify required tools (gpg, openssl, bash ≥ 4, xxd)
 check-deps:
 	@echo "Checking dependencies..."
 	@command -v gpg2 >/dev/null 2>&1 || command -v gpg >/dev/null 2>&1 || { echo "Error: gpg or gpg2 not found" >&2; exit 1; }
@@ -34,6 +61,7 @@ check-deps:
 	@echo "✓ xxd found"
 	@echo "All dependencies OK"
 
+## init: Create directory structure and initialize trove
 init:
 	@echo "Initializing trove structure..."
 	@mkdir -p $(USERS_DIR)
@@ -110,6 +138,7 @@ _decrypt-key:
 # Smoke Test: full round-trip encrypt → decrypt
 # ---------------------------------------------------------------------------
 
+## test-crypto: Run full encrypt/decrypt round-trip smoke test
 test-crypto:
 	@echo "=== Trove Crypto Smoke Test ==="
 	@echo ""
@@ -205,6 +234,7 @@ test-crypto:
 
 # add-user: Register a user's public GPG key
 #   Required vars: NAME, KEY
+## add-user: Register a user's GPG public key (NAME= KEY=)
 add-user:
 	@test -n "$(NAME)" || { echo "Error: NAME= is required" >&2; exit 1; }
 	@echo "$(NAME)" | grep -qE '^[a-zA-Z0-9._@-]+$$' || { echo "Error: Invalid NAME '$(NAME)' — must match [a-zA-Z0-9._@-]+" >&2; exit 1; }
@@ -215,8 +245,109 @@ add-user:
 	@gpg --batch --yes --homedir "$(GNUPGHOME)" --import "$(USERS_DIR)/$(NAME).pub" 2>/dev/null || { echo "Error: Failed to import key into isolated keyring" >&2; exit 1; }
 	@echo "User '$(NAME)' added successfully"
 
+# generate-key: Generate a new GPG keypair for a user
+#   Required vars: NAME (optional: EMAIL, output defaults to users/NAME.pub)
+## generate-key: Generate a new GPG keypair (NAME= [EMAIL=])
+generate-key:
+	@test -n "$(NAME)" || { echo "Error: NAME= is required" >&2; exit 1; }
+	@echo "$(NAME)" | grep -qE '^[a-zA-Z0-9._@-]+$$' || { echo "Error: Invalid NAME '$(NAME)' — must match [a-zA-Z0-9._@-]+" >&2; exit 1; }
+	@USER_EMAIL="$(if $(EMAIL),$(EMAIL),$(NAME)@trove.local)"; \
+	echo "Generating GPG keypair for $$USER_EMAIL..."; \
+	gpg --batch --yes --pinentry-mode loopback --passphrase "" \
+	  --quick-generate-key "$$USER_EMAIL" default default never 2>&1 | grep -v "^gpg:" || true; \
+	echo "Exporting public key to $(USERS_DIR)/$(NAME).pub..."; \
+	gpg --armor --export "$$USER_EMAIL" > "$(USERS_DIR)/$(NAME).pub" || \
+	{ echo "Error: Failed to export public key" >&2; exit 1; }; \
+	gpg --batch --yes --homedir "$(GNUPGHOME)" --import "$(USERS_DIR)/$(NAME).pub" 2>/dev/null || \
+	{ echo "Error: Failed to import key into isolated keyring" >&2; exit 1; }; \
+	echo "✓ Keypair generated and public key registered"; \
+	echo "  User ID: $$USER_EMAIL"; \
+	echo "  Public key: $(USERS_DIR)/$(NAME).pub"; \
+	echo "  Note: Private key stored in your personal GPG keyring (~/.gnupg)"
+
+# import-key: Import an existing public key from your GPG keyring
+#   Required vars: NAME (optional: EMAIL)
+## import-key: Import existing public key from your GPG keyring (NAME= [EMAIL=])
+import-key:
+	@test -n "$(NAME)" || { echo "Error: NAME= is required" >&2; exit 1; }
+	@echo "$(NAME)" | grep -qE '^[a-zA-Z0-9._@-]+$$' || { echo "Error: Invalid NAME '$(NAME)' — must match [a-zA-Z0-9._@-]+" >&2; exit 1; }
+	@USER_EMAIL="$(if $(EMAIL),$(EMAIL),$(NAME)@trove.local)"; \
+	echo "Searching for key with UID containing '$$USER_EMAIL'..."; \
+	gpg --list-keys "$$USER_EMAIL" >/dev/null 2>&1 || \
+	{ echo "Error: No key found for '$$USER_EMAIL' in your GPG keyring" >&2; \
+	  echo "Available keys:" >&2; \
+	  gpg --list-keys --with-colons | grep "^uid" | cut -d: -f10 | head -10 >&2; \
+	  exit 1; }; \
+	echo "Exporting public key to $(USERS_DIR)/$(NAME).pub..."; \
+	gpg --armor --export "$$USER_EMAIL" > "$(USERS_DIR)/$(NAME).pub" || \
+	{ echo "Error: Failed to export public key" >&2; exit 1; }; \
+	gpg --batch --yes --homedir "$(GNUPGHOME)" --import "$(USERS_DIR)/$(NAME).pub" 2>/dev/null || \
+	{ echo "Error: Failed to import key into isolated keyring" >&2; exit 1; }; \
+	echo "✓ Public key imported and registered"; \
+	echo "  User ID: $$USER_EMAIL"; \
+	echo "  Public key: $(USERS_DIR)/$(NAME).pub"
+
+# new-user: Interactive setup for new Trove user (walks through keypair generation, export, and registration)
+#   Required vars: NAME (optional: EMAIL, defaults to NAME@trove.local)
+## new-user: Interactive setup for new Trove user (NAME= [EMAIL=])
+new-user:
+	@test -n "$(NAME)" || { echo "Error: NAME= is required" >&2; exit 1; }
+	@echo "$(NAME)" | grep -qE '^[a-zA-Z0-9._@-]+$$' || { echo "Error: Invalid NAME '$(NAME)' — must match [a-zA-Z0-9._@-]+" >&2; exit 1; }
+	@NAME="$(NAME)" EMAIL="$(EMAIL)" USERS_DIR="$(USERS_DIR)" GNUPGHOME="$(GNUPGHOME)" bash -c '\
+		USER_EMAIL="$${EMAIL:-$$NAME@trove.local}"; \
+		echo "=== Setting up new Trove user ==="; \
+		echo ""; \
+		echo "[1/3] Generating GPG keypair in your personal keyring (~/.gnupg)..."; \
+		(unset GNUPGHOME; gpg --batch --yes --pinentry-mode loopback --passphrase "" \
+		  --quick-generate-key "$$USER_EMAIL" default default never 2>&1 | grep -v "^gpg:" || true); \
+		(unset GNUPGHOME; gpg --list-keys "$$USER_EMAIL" >/dev/null 2>&1) || \
+		{ echo "Error: Keypair generation failed for $$USER_EMAIL" >&2; exit 1; }; \
+		echo "✓ Keypair generated"; \
+		echo ""; \
+		echo "[2/3] Exporting public key to $(USERS_DIR)/$(NAME).pub..."; \
+		(unset GNUPGHOME; gpg --armor --export "$$USER_EMAIL") > "$(USERS_DIR)/$(NAME).pub" || \
+		{ echo "Error: Failed to export public key" >&2; exit 1; }; \
+		test -f "$(USERS_DIR)/$(NAME).pub" || \
+		{ echo "Error: Public key file not created" >&2; exit 1; }; \
+		echo "✓ Public key exported"; \
+		echo ""; \
+		echo "[3/3] Importing public key to repo keyring (.gnupg/)..."; \
+		gpg --batch --yes --homedir "$(GNUPGHOME)" --import "$(USERS_DIR)/$(NAME).pub" 2>/dev/null || \
+		{ echo "Error: Failed to import key into isolated keyring" >&2; exit 1; }; \
+		echo "✓ Public key registered in repo keyring"; \
+		echo ""; \
+		echo "=== Setup Complete ==="; \
+		echo ""; \
+		echo "✓ New user setup complete!"; \
+		echo ""; \
+		echo "  User ID: $$USER_EMAIL"; \
+		echo "  Trove Name: $(NAME)"; \
+		echo ""; \
+		echo "  Public key registered:"; \
+		echo "    - File: $(USERS_DIR)/$(NAME).pub"; \
+		echo "    - Imported to repo keyring (.gnupg/)"; \
+		echo ""; \
+		echo "  Private key location:"; \
+		echo "    - Stored in: ~/.gnupg (your personal GPG keyring)"; \
+		echo "    - Trove accesses it when you decrypt secrets"; \
+		echo ""; \
+		echo "  How to use:"; \
+		echo "    1. Create secrets: make create-secret NAME=mysecret FILE=secret.txt"; \
+		echo "       (Uses PM_USER=$(NAME) automatically)"; \
+		echo ""; \
+		echo "    2. Read secrets: make read-secret NAME=mysecret"; \
+		echo "       (GPG uses your private key from ~/.gnupg)"; \
+		echo ""; \
+		echo "    3. Grant access: make grant-access NAME=mysecret USER=bob"; \
+		echo ""; \
+		echo "  Next steps:"; \
+		echo "    - Commit users/$(NAME).pub to git"; \
+		echo "    - Share the repo with your team"; \
+	'
+
 # create-secret: Encrypt a file and store it as a named secret
 #   Required vars: NAME, FILE
+## create-secret: Encrypt a file and store it as a secret (NAME= FILE=)
 create-secret:
 	@test -n "$(NAME)" || { echo "Error: NAME= is required" >&2; exit 1; }
 	@echo "$(NAME)" | grep -qE '^[a-zA-Z0-9._-]+$$' || { echo "Error: Invalid NAME '$(NAME)' — must match [a-zA-Z0-9._-]+ (no @ or /)" >&2; exit 1; }
@@ -247,6 +378,7 @@ create-secret:
 
 # read-secret: Decrypt and output a secret's content to stdout
 #   Required vars: NAME
+## read-secret: Decrypt and print a secret to stdout (NAME=)
 read-secret:
 	@test -n "$(NAME)" || { echo "Error: NAME= is required" >&2; exit 1; }
 	@echo "$(NAME)" | grep -qE '^[a-zA-Z0-9._-]+$$' || { echo "Error: Invalid NAME '$(NAME)' — must match [a-zA-Z0-9._-]+ (no @ or /)" >&2; exit 1; }
@@ -266,6 +398,7 @@ read-secret:
 
 # grant-access: Share a secret's symmetric key with another user
 #   Required vars: NAME, USER
+## grant-access: Give a user access to a secret (NAME= USER=)
 grant-access:
 	@test -n "$(NAME)" || { echo "Error: NAME= is required" >&2; exit 1; }
 	@echo "$(NAME)" | grep -qE '^[a-zA-Z0-9._-]+$$' || { echo "Error: Invalid NAME '$(NAME)' — must match [a-zA-Z0-9._-]+ (no @ or /)" >&2; exit 1; }
@@ -292,6 +425,7 @@ grant-access:
 
 # revoke-access: Remove a user's access to a secret
 #   Required vars: NAME, USER
+## revoke-access: Remove a user's access to a secret (NAME= USER=)
 revoke-access:
 	@test -n "$(NAME)" || { echo "Error: NAME= is required" >&2; exit 1; }
 	@echo "$(NAME)" | grep -qE '^[a-zA-Z0-9._-]+$$' || { echo "Error: Invalid NAME '$(NAME)' — must match [a-zA-Z0-9._-]+ (no @ or /)" >&2; exit 1; }
@@ -306,6 +440,7 @@ revoke-access:
 # ---------------------------------------------------------------------------
 
 # list-secrets: List all secrets with user access counts
+## list-secrets: List all secrets and their access counts
 list-secrets:
 	@if [ -d "$(SECRETS_DIR)" ] && [ -n "$$(ls -A $(SECRETS_DIR) 2>/dev/null)" ]; then \
 	  for secret_dir in $(SECRETS_DIR)/*/; do \
@@ -318,6 +453,7 @@ list-secrets:
 	fi
 
 # list-users: List all registered users (strip .pub extension)
+## list-users: List all registered users
 list-users:
 	@if [ -d "$(USERS_DIR)" ] && [ -n "$$(ls -A $(USERS_DIR) 2>/dev/null)" ]; then \
 	  for user_key in $(USERS_DIR)/*.pub; do \
@@ -329,6 +465,7 @@ list-users:
 
 # delete-secret: Remove entire secret directory (requires NAME= parameter)
 #   Required vars: NAME
+## delete-secret: Permanently delete a secret (NAME=)
 delete-secret:
 	@test -n "$(NAME)" || { echo "Error: NAME= is required" >&2; exit 1; }
 	@echo "$(NAME)" | grep -qE '^[a-zA-Z0-9._-]+$$' || { echo "Error: Invalid NAME '$(NAME)' — must match [a-zA-Z0-9._-]+ (no @ or /)" >&2; exit 1; }
