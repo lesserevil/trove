@@ -17,7 +17,7 @@ TROVE_USER := $(or $(PM_USER),$(shell \
   fi \
 ))
 
-.PHONY: check-deps init _generate-key _generate-iv _encrypt-content _decrypt-content _encrypt-key-for-user _decrypt-key test-crypto
+.PHONY: check-deps init _generate-key _generate-iv _encrypt-content _decrypt-content _encrypt-key-for-user _decrypt-key test-crypto add-user create-secret read-secret
 
 check-deps:
 	@echo "Checking dependencies..."
@@ -100,7 +100,7 @@ _encrypt-key-for-user:
 _decrypt-key:
 	@test -n "$(KEY_ENC_FILE)" || { echo "ERROR: KEY_ENC_FILE is required" >&2; exit 1; }
 	@test -f "$(KEY_ENC_FILE)" || { echo "ERROR: KEY_ENC_FILE not found: $(KEY_ENC_FILE)" >&2; exit 1; }
-	@gpg --batch --yes --quiet --decrypt "$(KEY_ENC_FILE)" || \
+	@GNUPGHOME= gpg --batch --yes --quiet --decrypt "$(KEY_ENC_FILE)" || \
 	{ echo "ERROR: GPG decryption failed for $(KEY_ENC_FILE)" >&2; exit 1; }
 
 # ---------------------------------------------------------------------------
@@ -195,3 +195,68 @@ test-crypto:
 	\
 	echo ""; \
 	echo "=== All crypto smoke tests PASSED ==="
+
+# ---------------------------------------------------------------------------
+# Core Operations
+# ---------------------------------------------------------------------------
+
+# add-user: Register a user's public GPG key
+#   Required vars: NAME, KEY
+add-user:
+	@test -n "$(NAME)" || { echo "Error: NAME= is required" >&2; exit 1; }
+	@echo "$(NAME)" | grep -qE '^[a-zA-Z0-9._@-]+$$' || { echo "Error: Invalid NAME '$(NAME)' — must match [a-zA-Z0-9._@-]+" >&2; exit 1; }
+	@test -n "$(KEY)" || { echo "Error: KEY= is required" >&2; exit 1; }
+	@test -f "$(KEY)" || { echo "Error: KEY file not found: $(KEY)" >&2; exit 1; }
+	@gpg --show-keys "$(KEY)" >/dev/null 2>&1 || { echo "Error: KEY is not a valid GPG public key: $(KEY)" >&2; exit 1; }
+	@cp "$(KEY)" "$(USERS_DIR)/$(NAME).pub" || { echo "Error: Failed to copy key to $(USERS_DIR)/$(NAME).pub" >&2; exit 1; }
+	@gpg --batch --yes --homedir "$(GNUPGHOME)" --import "$(USERS_DIR)/$(NAME).pub" 2>/dev/null || { echo "Error: Failed to import key into isolated keyring" >&2; exit 1; }
+	@echo "User '$(NAME)' added successfully"
+
+# create-secret: Encrypt a file and store it as a named secret
+#   Required vars: NAME, FILE
+create-secret:
+	@test -n "$(NAME)" || { echo "Error: NAME= is required" >&2; exit 1; }
+	@echo "$(NAME)" | grep -qE '^[a-zA-Z0-9._-]+$$' || { echo "Error: Invalid NAME '$(NAME)' — must match [a-zA-Z0-9._-]+ (no @ or /)" >&2; exit 1; }
+	@test -n "$(FILE)" || { echo "Error: FILE= is required" >&2; exit 1; }
+	@test -f "$(FILE)" || { echo "Error: FILE not found: $(FILE)" >&2; exit 1; }
+	@test -r "$(FILE)" || { echo "Error: FILE not readable: $(FILE)" >&2; exit 1; }
+	@test ! -d "$(SECRETS_DIR)/$(NAME)" || { echo "Error: Secret '$(NAME)' already exists" >&2; exit 1; }
+	@test -f "$(USERS_DIR)/$(TROVE_USER).pub" || { echo "Error: Current user '$(TROVE_USER)' is not registered — run add-user first" >&2; exit 1; }
+	@SECRET_DIR="$(SECRETS_DIR)/$(NAME)"; \
+	_cleanup() { \
+	  if [ -n "$${_TMPDIR:-}" ] && [ -d "$${_TMPDIR}" ]; then rm -rf "$${_TMPDIR}"; fi; \
+	}; \
+	trap _cleanup EXIT; \
+	_TMPDIR=$$(mktemp -d); \
+	KEY_HEX=$$(openssl rand -hex 32) || { echo "Error: Failed to generate AES key" >&2; exit 1; }; \
+	IV_HEX=$$(openssl rand -hex 16) || { echo "Error: Failed to generate IV" >&2; exit 1; }; \
+	mkdir -p "$$SECRET_DIR" || { echo "Error: Failed to create secret directory" >&2; exit 1; }; \
+	echo "$$IV_HEX" > "$$SECRET_DIR/secret.enc" && \
+	openssl enc -aes-256-cbc -nosalt -K "$$KEY_HEX" -iv "$$IV_HEX" -in "$(FILE)" >> "$$SECRET_DIR/secret.enc" || \
+	{ echo "Error: Encryption failed" >&2; rm -rf "$$SECRET_DIR"; exit 1; }; \
+	echo "$$KEY_HEX" | gpg --batch --yes --trust-model always \
+	  --homedir "$(GNUPGHOME)" \
+	  --recipient-file "$(USERS_DIR)/$(TROVE_USER).pub" \
+	  --encrypt --armor \
+	  --output "$$SECRET_DIR/$(TROVE_USER).key.enc" || \
+	{ echo "Error: Failed to encrypt key for user '$(TROVE_USER)'" >&2; rm -rf "$$SECRET_DIR"; exit 1; }; \
+	echo "Secret '$(NAME)' created (access granted to $(TROVE_USER))"
+
+# read-secret: Decrypt and output a secret's content to stdout
+#   Required vars: NAME
+read-secret:
+	@test -n "$(NAME)" || { echo "Error: NAME= is required" >&2; exit 1; }
+	@echo "$(NAME)" | grep -qE '^[a-zA-Z0-9._-]+$$' || { echo "Error: Invalid NAME '$(NAME)' — must match [a-zA-Z0-9._-]+ (no @ or /)" >&2; exit 1; }
+	@test -d "$(SECRETS_DIR)/$(NAME)" || { echo "Error: Secret '$(NAME)' does not exist" >&2; exit 1; }
+	@test -f "$(SECRETS_DIR)/$(NAME)/$(TROVE_USER).key.enc" || { echo "Error: Access denied — user '$(TROVE_USER)' does not have access to secret '$(NAME)'" >&2; exit 1; }
+	@_cleanup() { \
+	  if [ -n "$${_TMPDIR:-}" ] && [ -d "$${_TMPDIR}" ]; then rm -rf "$${_TMPDIR}"; fi; \
+	}; \
+	trap _cleanup EXIT; \
+	_TMPDIR=$$(mktemp -d); \
+	KEY_HEX=$$(unset GNUPGHOME; gpg --batch --yes --quiet --decrypt "$(SECRETS_DIR)/$(NAME)/$(TROVE_USER).key.enc") || \
+	{ echo "Error: Failed to decrypt key — check your GPG private key" >&2; exit 1; }; \
+	IV_HEX=$$(head -1 "$(SECRETS_DIR)/$(NAME)/secret.enc"); \
+	tail -n +2 "$(SECRETS_DIR)/$(NAME)/secret.enc" | \
+	openssl enc -aes-256-cbc -d -nosalt -K "$$KEY_HEX" -iv "$$IV_HEX" || \
+	{ echo "Error: Failed to decrypt secret content" >&2; exit 1; }

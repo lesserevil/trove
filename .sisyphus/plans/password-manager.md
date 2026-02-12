@@ -465,7 +465,7 @@ Wave 3 (Final):
 
 ---
 
-- [ ] 3. Core Trio: `add-user`, `create-secret`, `read-secret`
+- [x] 3. Core Trio: `add-user`, `create-secret`, `read-secret`
 
   **What to do**:
   - Implement `make add-user NAME=<username> KEY=<path/to/pubkey>`:
