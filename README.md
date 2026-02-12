@@ -66,6 +66,15 @@ make list-users
 make delete-secret NAME=dbpass
 ```
 
+## Updating a Secret
+
+To replace a secret's content, use `update-secret`. This re-encrypts with the same symmetric key (only the IV changes), so all existing user access remains valid — no need to re-grant.
+
+```bash
+echo "new-password-456" > /tmp/dbpass.txt
+make update-secret NAME=dbpass FILE=/tmp/dbpass.txt
+```
+
 ## Moving Keys Between Machines
 
 Export a keypair from one machine and import it on another — no manual GPG commands needed.
@@ -109,6 +118,7 @@ Override for any command: `PM_USER=bob make read-secret NAME=dbpass`
 | `make add-user NAME= KEY=` | Register a user's GPG public key file |
 | `make create-secret NAME= FILE=` | Encrypt a file as a named secret |
 | `make read-secret NAME=` | Decrypt a secret to stdout |
+| `make update-secret NAME= FILE=` | Update a secret's content (keeps existing access) |
 | `make grant-access NAME= USER=` | Give a user access to a secret |
 | `make revoke-access NAME= USER=` | Remove a user's access to a secret |
 | `make list-secrets` | List all secrets with access counts |

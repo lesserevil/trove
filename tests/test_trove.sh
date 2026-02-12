@@ -432,6 +432,135 @@ test_grant_duplicate_fails() {
   teardown_test_env
 }
 
+# ---------------------------------------------------------------------------
+# 21. Update secret changes content (text)
+# ---------------------------------------------------------------------------
+test_update_secret_text() {
+  begin_test "update-secret changes content (text)"
+  setup_test_env
+  local ok=true
+
+  run_make add-user NAME="alice" KEY="$TEST_TMPDIR/alice.pub" >/dev/null 2>&1
+  echo "original value" > "$TEST_TMPDIR/v1.txt"
+  run_as alice create-secret NAME="updatable" FILE="$TEST_TMPDIR/v1.txt" >/dev/null 2>&1
+
+  echo "updated value" > "$TEST_TMPDIR/v2.txt"
+  run_as alice update-secret NAME="updatable" FILE="$TEST_TMPDIR/v2.txt" >/dev/null 2>&1 || { fail_test "update-secret failed"; ok=false; }
+
+  if $ok; then
+    local recovered
+    recovered=$(run_as alice read-secret NAME="updatable" 2>/dev/null)
+    assert_eq "updated value" "$recovered" "decrypted text should match updated content" || ok=false
+  fi
+
+  $ok && pass_test
+  teardown_test_env
+}
+
+# ---------------------------------------------------------------------------
+# 22. Update secret preserves access for other users
+# ---------------------------------------------------------------------------
+test_update_secret_preserves_access() {
+  begin_test "update-secret preserves access for other users"
+  setup_test_env
+  local ok=true
+
+  run_make add-user NAME="alice" KEY="$TEST_TMPDIR/alice.pub" >/dev/null 2>&1
+  run_make add-user NAME="bob" KEY="$TEST_TMPDIR/bob.pub" >/dev/null 2>&1
+  echo "v1" > "$TEST_TMPDIR/v1.txt"
+  run_as alice create-secret NAME="shared" FILE="$TEST_TMPDIR/v1.txt" >/dev/null 2>&1
+  run_as alice grant-access NAME="shared" USER="bob" >/dev/null 2>&1
+
+  echo "v2" > "$TEST_TMPDIR/v2.txt"
+  run_as alice update-secret NAME="shared" FILE="$TEST_TMPDIR/v2.txt" >/dev/null 2>&1 || { fail_test "update-secret failed"; ok=false; }
+
+  if $ok; then
+    local bob_read
+    bob_read=$(run_as bob read-secret NAME="shared" 2>/dev/null)
+    assert_eq "v2" "$bob_read" "bob should read the updated secret" || ok=false
+  fi
+
+  $ok && pass_test
+  teardown_test_env
+}
+
+# ---------------------------------------------------------------------------
+# 23. Update secret works with binary content
+# ---------------------------------------------------------------------------
+test_update_secret_binary() {
+  begin_test "update-secret works with binary content"
+  setup_test_env
+  local ok=true
+
+  run_make add-user NAME="alice" KEY="$TEST_TMPDIR/alice.pub" >/dev/null 2>&1
+  dd if=/dev/urandom of="$TEST_TMPDIR/bin1.dat" bs=1024 count=5 2>/dev/null
+  run_as alice create-secret NAME="binup" FILE="$TEST_TMPDIR/bin1.dat" >/dev/null 2>&1
+
+  dd if=/dev/urandom of="$TEST_TMPDIR/bin2.dat" bs=1024 count=8 2>/dev/null
+  local expected_sha
+  expected_sha=$(shasum -a 256 "$TEST_TMPDIR/bin2.dat" | awk '{print $1}')
+
+  run_as alice update-secret NAME="binup" FILE="$TEST_TMPDIR/bin2.dat" >/dev/null 2>&1 || { fail_test "update-secret failed"; ok=false; }
+
+  if $ok; then
+    run_as alice read-secret NAME="binup" 2>/dev/null > "$TEST_TMPDIR/recovered.dat"
+    local actual_sha
+    actual_sha=$(shasum -a 256 "$TEST_TMPDIR/recovered.dat" | awk '{print $1}')
+    assert_eq "$expected_sha" "$actual_sha" "SHA-256 of updated binary should match" || ok=false
+  fi
+
+  $ok && pass_test
+  teardown_test_env
+}
+
+# ---------------------------------------------------------------------------
+# 24. Update nonexistent secret fails
+# ---------------------------------------------------------------------------
+test_update_nonexistent_fails() {
+  begin_test "update nonexistent secret fails"
+  setup_test_env
+  local ok=true
+
+  run_make add-user NAME="alice" KEY="$TEST_TMPDIR/alice.pub" >/dev/null 2>&1
+  echo "data" > "$TEST_TMPDIR/data.txt"
+
+  local exit_code=0
+  run_as alice update-secret NAME="ghost" FILE="$TEST_TMPDIR/data.txt" >/dev/null 2>&1 || exit_code=$?
+  assert_ne "0" "$exit_code" "updating nonexistent secret should fail" || ok=false
+
+  $ok && pass_test
+  teardown_test_env
+}
+
+# ---------------------------------------------------------------------------
+# 25. Update secret without access fails
+# ---------------------------------------------------------------------------
+test_update_without_access_fails() {
+  begin_test "update secret without access fails"
+  setup_test_env
+  local ok=true
+
+  run_make add-user NAME="alice" KEY="$TEST_TMPDIR/alice.pub" >/dev/null 2>&1
+  run_make add-user NAME="bob" KEY="$TEST_TMPDIR/bob.pub" >/dev/null 2>&1
+  echo "original" > "$TEST_TMPDIR/orig.txt"
+  run_as alice create-secret NAME="restricted" FILE="$TEST_TMPDIR/orig.txt" >/dev/null 2>&1
+
+  echo "hacked" > "$TEST_TMPDIR/hack.txt"
+  local exit_code=0
+  run_as bob update-secret NAME="restricted" FILE="$TEST_TMPDIR/hack.txt" >/dev/null 2>&1 || exit_code=$?
+  assert_ne "0" "$exit_code" "user without access should not be able to update" || ok=false
+
+  # Verify original content is unchanged
+  if $ok; then
+    local recovered
+    recovered=$(run_as alice read-secret NAME="restricted" 2>/dev/null)
+    assert_eq "original" "$recovered" "original content should be unchanged after failed update" || ok=false
+  fi
+
+  $ok && pass_test
+  teardown_test_env
+}
+
 # ===========================================================================
 # Run all tests
 # ===========================================================================
@@ -460,6 +589,11 @@ test_check_deps
 test_delete_nonexistent_fails
 test_revoke_nonexistent_access_fails
 test_grant_duplicate_fails
+test_update_secret_text
+test_update_secret_preserves_access
+test_update_secret_binary
+test_update_nonexistent_fails
+test_update_without_access_fails
 
 print_summary
 

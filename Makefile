@@ -17,7 +17,7 @@ TROVE_USER := $(or $(PM_USER),$(shell \
   fi \
 ))
 
-.PHONY: help check-deps init _generate-key _generate-iv _encrypt-content _decrypt-content _encrypt-key-for-user _decrypt-key test-crypto add-user generate-key import-key export-key import-secret-key new-user create-secret read-secret grant-access revoke-access list-secrets list-users delete-secret test
+.PHONY: help check-deps init _generate-key _generate-iv _encrypt-content _decrypt-content _encrypt-key-for-user _decrypt-key test-crypto add-user generate-key import-key export-key import-secret-key new-user create-secret read-secret update-secret grant-access revoke-access list-secrets list-users delete-secret test
 
 ## help: Show this help message
 help:
@@ -39,6 +39,7 @@ help:
 	@echo "  make add-user NAME=alice KEY=alice.pub"
 	@echo "  make create-secret NAME=api-key FILE=secret.txt"
 	@echo "  make read-secret NAME=api-key"
+	@echo "  make update-secret NAME=api-key FILE=new-secret.txt"
 	@echo "  make grant-access NAME=api-key USER=bob"
 	@echo "  make revoke-access NAME=api-key USER=bob"
 	@echo "  make list-secrets"
@@ -458,6 +459,33 @@ read-secret:
 	tail -n +2 "$(SECRETS_DIR)/$(NAME)/secret.enc" | \
 	openssl enc -aes-256-cbc -d -nosalt -K "$$KEY_HEX" -iv "$$IV_HEX" || \
 	{ echo "Error: Failed to decrypt secret content" >&2; exit 1; }
+
+# update-secret: Re-encrypt a secret with new content, keeping the same symmetric key
+#   Required vars: NAME, FILE
+## update-secret: Update a secret's content (NAME= FILE=)
+update-secret:
+	@test -n "$(NAME)" || { echo "Error: NAME= is required" >&2; exit 1; }
+	@echo "$(NAME)" | grep -qE '^[a-zA-Z0-9._/-]+$$' || { echo "Error: Invalid NAME '$(NAME)' — must match [a-zA-Z0-9._/-]+" >&2; exit 1; }
+	@echo "$(NAME)" | grep -qE '\.\./|^\.\.|^/' && { echo "Error: Invalid NAME '$(NAME)' — path traversal not allowed" >&2; exit 1; } || true
+	@test -n "$(FILE)" || { echo "Error: FILE= is required" >&2; exit 1; }
+	@test -f "$(FILE)" || { echo "Error: FILE not found: $(FILE)" >&2; exit 1; }
+	@test -r "$(FILE)" || { echo "Error: FILE not readable: $(FILE)" >&2; exit 1; }
+	@test -d "$(SECRETS_DIR)/$(NAME)" || { echo "Error: Secret '$(NAME)' does not exist" >&2; exit 1; }
+	@test -f "$(SECRETS_DIR)/$(NAME)/$(TROVE_USER).key.enc" || { echo "Error: Access denied — user '$(TROVE_USER)' does not have access to secret '$(NAME)'" >&2; exit 1; }
+	@_cleanup() { \
+	  if [ -n "$${_TMPDIR:-}" ] && [ -d "$${_TMPDIR}" ]; then rm -rf "$${_TMPDIR}"; fi; \
+	}; \
+	trap _cleanup EXIT; \
+	_TMPDIR=$$(mktemp -d); \
+	KEY_HEX=$$(unset GNUPGHOME; gpg --batch --yes --quiet --decrypt "$(SECRETS_DIR)/$(NAME)/$(TROVE_USER).key.enc") || \
+	{ echo "Error: Failed to decrypt key — check your GPG private key" >&2; exit 1; }; \
+	IV_HEX=$$(openssl rand -hex 16) || { echo "Error: Failed to generate IV" >&2; exit 1; }; \
+	echo "$$IV_HEX" > "$${_TMPDIR}/secret.enc" && \
+	openssl enc -aes-256-cbc -nosalt -K "$$KEY_HEX" -iv "$$IV_HEX" -in "$(FILE)" >> "$${_TMPDIR}/secret.enc" || \
+	{ echo "Error: Encryption failed" >&2; exit 1; }; \
+	mv "$${_TMPDIR}/secret.enc" "$(SECRETS_DIR)/$(NAME)/secret.enc" || \
+	{ echo "Error: Failed to update secret" >&2; exit 1; }; \
+	echo "Secret '$(NAME)' updated"
 
 # grant-access: Share a secret's symmetric key with another user
 #   Required vars: NAME, USER
