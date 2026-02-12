@@ -17,7 +17,7 @@ TROVE_USER := $(or $(PM_USER),$(shell \
   fi \
 ))
 
-.PHONY: help check-deps init _generate-key _generate-iv _encrypt-content _decrypt-content _encrypt-key-for-user _decrypt-key test-crypto add-user generate-key import-key new-user create-secret read-secret grant-access revoke-access list-secrets list-users delete-secret test
+.PHONY: help check-deps init _generate-key _generate-iv _encrypt-content _decrypt-content _encrypt-key-for-user _decrypt-key test-crypto add-user generate-key import-key export-key import-secret-key new-user create-secret read-secret grant-access revoke-access list-secrets list-users delete-secret test
 
 ## help: Show this help message
 help:
@@ -31,6 +31,7 @@ help:
 	@echo "  FILE=<path>       Path to file to encrypt"
 	@echo "  KEY=<path>        Path to GPG public key file"
 	@echo "  USER=<username>   Target user for grant/revoke"
+	@echo "  DIR=<path>        Output directory for export-key (default: .)"
 	@echo ""
 	@echo "Examples:"
 	@echo "  make check-deps"
@@ -43,6 +44,8 @@ help:
 	@echo "  make list-secrets"
 	@echo "  make list-users"
 	@echo "  make delete-secret NAME=api-key"
+	@echo "  make export-key NAME=ci-deploy"
+	@echo "  make import-secret-key NAME=ci-deploy KEY=ci-deploy.secret.key"
 
 ## test: Run the test suite
 test:
@@ -286,6 +289,63 @@ import-key:
 	echo "✓ Public key imported and registered"; \
 	echo "  User ID: $$USER_EMAIL"; \
 	echo "  Public key: $(USERS_DIR)/$(NAME).pub"
+
+# export-key: Export a user's GPG keypair (public + secret) to files for transfer
+#   Required vars: NAME (optional: EMAIL, DIR — defaults to current directory)
+## export-key: Export a user's GPG keypair to files for transfer (NAME= [EMAIL=] [DIR=.])
+export-key:
+	@test -n "$(NAME)" || { echo "Error: NAME= is required" >&2; exit 1; }
+	@echo "$(NAME)" | grep -qE '^[a-zA-Z0-9._@-]+$$' || { echo "Error: Invalid NAME '$(NAME)' — must match [a-zA-Z0-9._@-]+" >&2; exit 1; }
+	@USER_EMAIL="$(if $(EMAIL),$(EMAIL),$(NAME)@trove.local)"; \
+	EXPORT_DIR="$(if $(DIR),$(DIR),.)"; \
+	echo "Exporting keypair for '$$USER_EMAIL'..."; \
+	(unset GNUPGHOME; gpg --list-keys "$$USER_EMAIL") >/dev/null 2>&1 || \
+	{ echo "Error: No key found for '$$USER_EMAIL' in your GPG keyring" >&2; \
+	  echo "Available keys:" >&2; \
+	  (unset GNUPGHOME; gpg --list-keys --with-colons) | grep "^uid" | cut -d: -f10 | head -10 >&2; \
+	  exit 1; }; \
+	echo "[1/2] Exporting public key to $$EXPORT_DIR/$(NAME).pub..."; \
+	(unset GNUPGHOME; gpg --armor --export "$$USER_EMAIL") > "$$EXPORT_DIR/$(NAME).pub" || \
+	{ echo "Error: Failed to export public key" >&2; exit 1; }; \
+	echo "[2/2] Exporting secret key to $$EXPORT_DIR/$(NAME).secret.key..."; \
+	(unset GNUPGHOME; gpg --armor --export-secret-keys "$$USER_EMAIL") > "$$EXPORT_DIR/$(NAME).secret.key" || \
+	{ echo "Error: Failed to export secret key" >&2; rm -f "$$EXPORT_DIR/$(NAME).pub"; exit 1; }; \
+	echo ""; \
+	echo "✓ Keypair exported"; \
+	echo "  Public key:  $$EXPORT_DIR/$(NAME).pub"; \
+	echo "  Secret key:  $$EXPORT_DIR/$(NAME).secret.key"; \
+	echo ""; \
+	echo "  Transfer both files to the new machine, then run:"; \
+	echo "    make import-secret-key NAME=$(NAME) KEY=$$EXPORT_DIR/$(NAME).secret.key"; \
+	echo ""; \
+	echo "  ⚠  Delete $(NAME).secret.key after transfer — do not commit it to git"
+
+# import-secret-key: Import a GPG secret key (and its public key) onto this machine and register the user
+#   Required vars: NAME, KEY (path to the .secret.key file)
+## import-secret-key: Import a GPG secret key onto this machine (NAME= KEY=)
+import-secret-key:
+	@test -n "$(NAME)" || { echo "Error: NAME= is required" >&2; exit 1; }
+	@echo "$(NAME)" | grep -qE '^[a-zA-Z0-9._@-]+$$' || { echo "Error: Invalid NAME '$(NAME)' — must match [a-zA-Z0-9._@-]+" >&2; exit 1; }
+	@test -n "$(KEY)" || { echo "Error: KEY= is required (path to .secret.key file)" >&2; exit 1; }
+	@test -f "$(KEY)" || { echo "Error: KEY file not found: $(KEY)" >&2; exit 1; }
+	@echo "Importing secret key from $(KEY)..."; \
+	echo "[1/3] Importing secret key into personal GPG keyring (~/.gnupg)..."; \
+	(unset GNUPGHOME; gpg --batch --yes --import "$(KEY)") 2>&1 | grep -v "^gpg:" || true; \
+	echo "[2/3] Exporting public key to $(USERS_DIR)/$(NAME).pub..."; \
+	USER_EMAIL=$$(unset GNUPGHOME; gpg --with-colons --import-options show-only --import "$(KEY)" 2>/dev/null | grep "^uid" | head -1 | cut -d: -f10); \
+	(unset GNUPGHOME; gpg --armor --export "$$USER_EMAIL") > "$(USERS_DIR)/$(NAME).pub" || \
+	{ echo "Error: Failed to export public key after import" >&2; exit 1; }; \
+	echo "[3/3] Importing public key into repo keyring (.gnupg/)..."; \
+	gpg --batch --yes --homedir "$(GNUPGHOME)" --import "$(USERS_DIR)/$(NAME).pub" 2>/dev/null || \
+	{ echo "Error: Failed to import key into isolated keyring" >&2; exit 1; }; \
+	echo ""; \
+	echo "✓ Secret key imported and user registered"; \
+	echo "  User ID: $$USER_EMAIL"; \
+	echo "  Trove Name: $(NAME)"; \
+	echo "  Public key: $(USERS_DIR)/$(NAME).pub"; \
+	echo ""; \
+	echo "  ⚠  Delete the .secret.key file now — it's no longer needed:"; \
+	echo "    rm $(KEY)"
 
 # new-user: Interactive setup for new Trove user (walks through keypair generation, export, and registration)
 #   Required vars: NAME (optional: EMAIL, defaults to NAME@trove.local)
