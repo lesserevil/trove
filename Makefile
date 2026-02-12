@@ -17,17 +17,17 @@ TROVE_USER := $(or $(PM_USER),$(shell \
   fi \
 ))
 
-.PHONY: check-deps init _generate-key _generate-iv _encrypt-content _decrypt-content _encrypt-key-for-user _decrypt-key test-crypto add-user create-secret read-secret
+.PHONY: check-deps init _generate-key _generate-iv _encrypt-content _decrypt-content _encrypt-key-for-user _decrypt-key test-crypto add-user create-secret read-secret grant-access revoke-access list-secrets list-users delete-secret
 
 check-deps:
 	@echo "Checking dependencies..."
-	@command -v gpg2 >/dev/null 2>&1 || command -v gpg >/dev/null 2>&1 || (echo "ERROR: gpg or gpg2 not found" && exit 1)
+	@command -v gpg2 >/dev/null 2>&1 || command -v gpg >/dev/null 2>&1 || { echo "Error: gpg or gpg2 not found" >&2; exit 1; }
 	@echo "✓ GPG found"
-	@command -v openssl >/dev/null 2>&1 || (echo "ERROR: openssl not found" && exit 1)
+	@command -v openssl >/dev/null 2>&1 || { echo "Error: openssl not found" >&2; exit 1; }
 	@echo "✓ OpenSSL found"
-	@bash -c 'if [[ $${BASH_VERSINFO[0]} -lt 4 ]]; then echo "ERROR: bash >= 4 required"; exit 1; fi'
+	@bash -c 'if [[ $${BASH_VERSINFO[0]} -lt 4 ]]; then echo "Error: bash >= 4 required" >&2; exit 1; fi'
 	@echo "✓ Bash >= 4 found"
-	@command -v xxd >/dev/null 2>&1 || (echo "ERROR: xxd not found" && exit 1)
+	@command -v xxd >/dev/null 2>&1 || { echo "Error: xxd not found" >&2; exit 1; }
 	@echo "✓ xxd found"
 	@echo "All dependencies OK"
 
@@ -47,44 +47,44 @@ init:
 
 # _generate-key: Output a 64 hex-char AES-256 key to stdout
 _generate-key:
-	@openssl rand -hex 32 || { echo "ERROR: failed to generate AES key" >&2; exit 1; }
+	@openssl rand -hex 32 || { echo "Error: failed to generate AES key" >&2; exit 1; }
 
 # _generate-iv: Output a 32 hex-char IV to stdout
 _generate-iv:
-	@openssl rand -hex 16 || { echo "ERROR: failed to generate IV" >&2; exit 1; }
+	@openssl rand -hex 16 || { echo "Error: failed to generate IV" >&2; exit 1; }
 
 # _encrypt-content: Encrypt PLAINTEXT_FILE → OUTPUT_FILE using KEY_HEX and IV_HEX
 #   Required vars: KEY_HEX, IV_HEX, PLAINTEXT_FILE, OUTPUT_FILE
 _encrypt-content:
-	@test -n "$(KEY_HEX)" || { echo "ERROR: KEY_HEX is required" >&2; exit 1; }
-	@test -n "$(IV_HEX)" || { echo "ERROR: IV_HEX is required" >&2; exit 1; }
-	@test -n "$(PLAINTEXT_FILE)" || { echo "ERROR: PLAINTEXT_FILE is required" >&2; exit 1; }
-	@test -n "$(OUTPUT_FILE)" || { echo "ERROR: OUTPUT_FILE is required" >&2; exit 1; }
-	@test -f "$(PLAINTEXT_FILE)" || { echo "ERROR: PLAINTEXT_FILE not found: $(PLAINTEXT_FILE)" >&2; exit 1; }
+	@test -n "$(KEY_HEX)" || { echo "Error: KEY_HEX is required" >&2; exit 1; }
+	@test -n "$(IV_HEX)" || { echo "Error: IV_HEX is required" >&2; exit 1; }
+	@test -n "$(PLAINTEXT_FILE)" || { echo "Error: PLAINTEXT_FILE is required" >&2; exit 1; }
+	@test -n "$(OUTPUT_FILE)" || { echo "Error: OUTPUT_FILE is required" >&2; exit 1; }
+	@test -f "$(PLAINTEXT_FILE)" || { echo "Error: PLAINTEXT_FILE not found: $(PLAINTEXT_FILE)" >&2; exit 1; }
 	@_cleanup() { if [ -n "$${_PARTIAL_OUT:-}" ] && [ -f "$${_PARTIAL_OUT}" ]; then rm -f "$${_PARTIAL_OUT}"; fi; }; \
 	trap _cleanup EXIT; \
 	_PARTIAL_OUT="$(OUTPUT_FILE)"; \
 	echo "$(IV_HEX)" > "$(OUTPUT_FILE)" && \
 	openssl enc -aes-256-cbc -nosalt -K "$(KEY_HEX)" -iv "$(IV_HEX)" -in "$(PLAINTEXT_FILE)" >> "$(OUTPUT_FILE)" || \
-	{ echo "ERROR: encryption failed" >&2; rm -f "$(OUTPUT_FILE)"; exit 1; }
+	{ echo "Error: encryption failed" >&2; rm -f "$(OUTPUT_FILE)"; exit 1; }
 
 # _decrypt-content: Decrypt SECRET_ENC_FILE to stdout using KEY_HEX
 #   Required vars: KEY_HEX, SECRET_ENC_FILE
 _decrypt-content:
-	@test -n "$(KEY_HEX)" || { echo "ERROR: KEY_HEX is required" >&2; exit 1; }
-	@test -n "$(SECRET_ENC_FILE)" || { echo "ERROR: SECRET_ENC_FILE is required" >&2; exit 1; }
-	@test -f "$(SECRET_ENC_FILE)" || { echo "ERROR: SECRET_ENC_FILE not found: $(SECRET_ENC_FILE)" >&2; exit 1; }
+	@test -n "$(KEY_HEX)" || { echo "Error: KEY_HEX is required" >&2; exit 1; }
+	@test -n "$(SECRET_ENC_FILE)" || { echo "Error: SECRET_ENC_FILE is required" >&2; exit 1; }
+	@test -f "$(SECRET_ENC_FILE)" || { echo "Error: SECRET_ENC_FILE not found: $(SECRET_ENC_FILE)" >&2; exit 1; }
 	@IV_HEX=$$(head -1 "$(SECRET_ENC_FILE)"); \
 	tail -n +2 "$(SECRET_ENC_FILE)" | openssl enc -aes-256-cbc -d -nosalt -K "$(KEY_HEX)" -iv "$$IV_HEX" || \
-	{ echo "ERROR: decryption failed" >&2; exit 1; }
+	{ echo "Error: decryption failed" >&2; exit 1; }
 
 # _encrypt-key-for-user: Encrypt KEY_HEX for USERNAME → OUTPUT_FILE (GPG)
 #   Required vars: KEY_HEX, USERNAME, OUTPUT_FILE
 _encrypt-key-for-user:
-	@test -n "$(KEY_HEX)" || { echo "ERROR: KEY_HEX is required" >&2; exit 1; }
-	@test -n "$(USERNAME)" || { echo "ERROR: USERNAME is required" >&2; exit 1; }
-	@test -n "$(OUTPUT_FILE)" || { echo "ERROR: OUTPUT_FILE is required" >&2; exit 1; }
-	@test -f "$(USERS_DIR)/$(USERNAME).pub" || { echo "ERROR: public key not found: $(USERS_DIR)/$(USERNAME).pub" >&2; exit 1; }
+	@test -n "$(KEY_HEX)" || { echo "Error: KEY_HEX is required" >&2; exit 1; }
+	@test -n "$(USERNAME)" || { echo "Error: USERNAME is required" >&2; exit 1; }
+	@test -n "$(OUTPUT_FILE)" || { echo "Error: OUTPUT_FILE is required" >&2; exit 1; }
+	@test -f "$(USERS_DIR)/$(USERNAME).pub" || { echo "Error: public key not found: $(USERS_DIR)/$(USERNAME).pub" >&2; exit 1; }
 	@_cleanup() { if [ -n "$${_PARTIAL_OUT:-}" ] && [ -f "$${_PARTIAL_OUT}" ]; then rm -f "$${_PARTIAL_OUT}"; fi; }; \
 	trap _cleanup EXIT; \
 	_PARTIAL_OUT="$(OUTPUT_FILE)"; \
@@ -93,15 +93,15 @@ _encrypt-key-for-user:
 	  --recipient-file "$(USERS_DIR)/$(USERNAME).pub" \
 	  --encrypt --armor \
 	  --output "$(OUTPUT_FILE)" || \
-	{ echo "ERROR: GPG encryption failed for user $(USERNAME)" >&2; rm -f "$(OUTPUT_FILE)"; exit 1; }
+	{ echo "Error: GPG encryption failed for user $(USERNAME)" >&2; rm -f "$(OUTPUT_FILE)"; exit 1; }
 
 # _decrypt-key: Decrypt KEY_ENC_FILE to stdout (uses user's personal GPG keyring)
 #   Required vars: KEY_ENC_FILE
 _decrypt-key:
-	@test -n "$(KEY_ENC_FILE)" || { echo "ERROR: KEY_ENC_FILE is required" >&2; exit 1; }
-	@test -f "$(KEY_ENC_FILE)" || { echo "ERROR: KEY_ENC_FILE not found: $(KEY_ENC_FILE)" >&2; exit 1; }
+	@test -n "$(KEY_ENC_FILE)" || { echo "Error: KEY_ENC_FILE is required" >&2; exit 1; }
+	@test -f "$(KEY_ENC_FILE)" || { echo "Error: KEY_ENC_FILE not found: $(KEY_ENC_FILE)" >&2; exit 1; }
 	@GNUPGHOME= gpg --batch --yes --quiet --decrypt "$(KEY_ENC_FILE)" || \
-	{ echo "ERROR: GPG decryption failed for $(KEY_ENC_FILE)" >&2; exit 1; }
+	{ echo "Error: GPG decryption failed for $(KEY_ENC_FILE)" >&2; exit 1; }
 
 # ---------------------------------------------------------------------------
 # Smoke Test: full round-trip encrypt → decrypt
@@ -260,3 +260,75 @@ read-secret:
 	tail -n +2 "$(SECRETS_DIR)/$(NAME)/secret.enc" | \
 	openssl enc -aes-256-cbc -d -nosalt -K "$$KEY_HEX" -iv "$$IV_HEX" || \
 	{ echo "Error: Failed to decrypt secret content" >&2; exit 1; }
+
+# grant-access: Share a secret's symmetric key with another user
+#   Required vars: NAME, USER
+grant-access:
+	@test -n "$(NAME)" || { echo "Error: NAME= is required" >&2; exit 1; }
+	@echo "$(NAME)" | grep -qE '^[a-zA-Z0-9._-]+$$' || { echo "Error: Invalid NAME '$(NAME)' — must match [a-zA-Z0-9._-]+ (no @ or /)" >&2; exit 1; }
+	@test -n "$(USER)" || { echo "Error: USER= is required" >&2; exit 1; }
+	@echo "$(USER)" | grep -qE '^[a-zA-Z0-9._@-]+$$' || { echo "Error: Invalid USER '$(USER)' — must match [a-zA-Z0-9._@-]+" >&2; exit 1; }
+	@test -d "$(SECRETS_DIR)/$(NAME)" || { echo "Error: Secret '$(NAME)' does not exist" >&2; exit 1; }
+	@test -f "$(USERS_DIR)/$(USER).pub" || { echo "Error: User '$(USER)' is not registered — unknown user" >&2; exit 1; }
+	@test -f "$(SECRETS_DIR)/$(NAME)/$(TROVE_USER).key.enc" || { echo "Error: Access denied — user '$(TROVE_USER)' does not have access to secret '$(NAME)'" >&2; exit 1; }
+	@test ! -f "$(SECRETS_DIR)/$(NAME)/$(USER).key.enc" || { echo "Error: User '$(USER)' already has access to secret '$(NAME)'" >&2; exit 1; }
+	@_cleanup() { \
+	  if [ -n "$${_TMPDIR:-}" ] && [ -d "$${_TMPDIR}" ]; then rm -rf "$${_TMPDIR}"; fi; \
+	}; \
+	trap _cleanup EXIT; \
+	_TMPDIR=$$(mktemp -d); \
+	KEY_HEX=$$(unset GNUPGHOME; gpg --batch --yes --quiet --decrypt "$(SECRETS_DIR)/$(NAME)/$(TROVE_USER).key.enc") || \
+	{ echo "Error: Failed to decrypt key — check your GPG private key" >&2; exit 1; }; \
+	echo "$$KEY_HEX" | gpg --batch --yes --trust-model always \
+	  --homedir "$(GNUPGHOME)" \
+	  --recipient-file "$(USERS_DIR)/$(USER).pub" \
+	  --encrypt --armor \
+	  --output "$(SECRETS_DIR)/$(NAME)/$(USER).key.enc" || \
+	{ echo "Error: GPG encryption failed for user $(USER)" >&2; exit 1; }; \
+	echo "Access to secret '$(NAME)' granted to user '$(USER)'"
+
+# revoke-access: Remove a user's access to a secret
+#   Required vars: NAME, USER
+revoke-access:
+	@test -n "$(NAME)" || { echo "Error: NAME= is required" >&2; exit 1; }
+	@echo "$(NAME)" | grep -qE '^[a-zA-Z0-9._-]+$$' || { echo "Error: Invalid NAME '$(NAME)' — must match [a-zA-Z0-9._-]+ (no @ or /)" >&2; exit 1; }
+	@test -n "$(USER)" || { echo "Error: USER= is required" >&2; exit 1; }
+	@echo "$(USER)" | grep -qE '^[a-zA-Z0-9._@-]+$$' || { echo "Error: Invalid USER '$(USER)' — must match [a-zA-Z0-9._@-]+" >&2; exit 1; }
+	@test -f "$(SECRETS_DIR)/$(NAME)/$(USER).key.enc" || { echo "Error: User '$(USER)' does not have access to secret '$(NAME)'" >&2; exit 1; }
+	@rm -f "$(SECRETS_DIR)/$(NAME)/$(USER).key.enc" || { echo "Error: Failed to revoke access" >&2; exit 1; }
+	@echo "Access to secret '$(NAME)' revoked for user '$(USER)'"
+
+# ---------------------------------------------------------------------------
+# Utility Operations
+# ---------------------------------------------------------------------------
+
+# list-secrets: List all secrets with user access counts
+list-secrets:
+	@if [ -d "$(SECRETS_DIR)" ] && [ -n "$$(ls -A $(SECRETS_DIR) 2>/dev/null)" ]; then \
+	  for secret_dir in $(SECRETS_DIR)/*/; do \
+	    secret_name=$$(basename "$$secret_dir"); \
+	    user_count=$$(find "$$secret_dir" -name "*.key.enc" | wc -l); \
+	    echo "$$secret_name ($$user_count users)"; \
+	  done; \
+	else \
+	  echo "No secrets found"; \
+	fi
+
+# list-users: List all registered users (strip .pub extension)
+list-users:
+	@if [ -d "$(USERS_DIR)" ] && [ -n "$$(ls -A $(USERS_DIR) 2>/dev/null)" ]; then \
+	  for user_key in $(USERS_DIR)/*.pub; do \
+	    basename "$$user_key" .pub; \
+	  done; \
+	else \
+	  echo "No users found"; \
+	fi
+
+# delete-secret: Remove entire secret directory (requires NAME= parameter)
+#   Required vars: NAME
+delete-secret:
+	@test -n "$(NAME)" || { echo "Error: NAME= is required" >&2; exit 1; }
+	@echo "$(NAME)" | grep -qE '^[a-zA-Z0-9._-]+$$' || { echo "Error: Invalid NAME '$(NAME)' — must match [a-zA-Z0-9._-]+ (no @ or /)" >&2; exit 1; }
+	@test -d "$(SECRETS_DIR)/$(NAME)" || { echo "Error: Secret '$(NAME)' does not exist" >&2; exit 1; }
+	@rm -rf "$(SECRETS_DIR)/$(NAME)" || { echo "Error: Failed to delete secret '$(NAME)'" >&2; exit 1; }
+	@echo "Secret '$(NAME)' deleted"

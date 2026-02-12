@@ -621,7 +621,7 @@ Wave 3 (Final):
 
 ---
 
-- [ ] 4. Access Control: `grant-access` and `revoke-access`
+- [x] 4. Access Control: `grant-access` and `revoke-access`
 
   **What to do**:
   - Implement `make grant-access NAME=<secret> USER=<username>`:
@@ -728,7 +728,7 @@ Wave 3 (Final):
 
 ---
 
-- [ ] 5. Utility Targets: `list-secrets`, `list-users`, `delete-secret`
+- [x] 5. Utility Targets: `list-secrets`, `list-users`, `delete-secret`
 
   **What to do**:
   - Implement `make list-secrets`:
@@ -828,7 +828,7 @@ Wave 3 (Final):
 
 ---
 
-- [ ] 6. Error Handling and Input Validation Hardening
+- [x] 6. Error Handling and Input Validation Hardening
 
   **What to do**:
   - Audit ALL existing targets and ensure consistent error handling:
