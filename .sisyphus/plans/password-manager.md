@@ -931,7 +931,7 @@ Wave 3 (Final):
 
 ---
 
-- [ ] 7. Integration Test Suite
+- [x] 7. Integration Test Suite
 
   **What to do**:
   - Create `tests/helpers.sh` with:

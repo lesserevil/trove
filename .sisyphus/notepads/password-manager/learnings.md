@@ -309,3 +309,57 @@ All targets now use same validation approach:
 @echo "$(NAME)" | grep -qE '^[a-zA-Z0-9._-]+$$' || { echo "Error: Invalid NAME..." >&2; exit 1; }
 ```
 This pattern scales to all future targets (list-secrets, list-users, delete-secret, etc.)
+
+## Task 7: Integration Test Suite
+
+### GPG Keypair Isolation Strategy
+- Test keypairs generated in a shared `TEST_GNUPGHOME` (mktemp -d) with `--quick-generate-key`
+- Critical discovery: Makefile's `read-secret` and `grant-access` do `unset GNUPGHOME; gpg --decrypt` which falls back to `$HOME/.gnupg`
+- Solution: Create `TEST_FAKE_HOME` with `.gnupg` symlinked to `TEST_GNUPGHOME`, then set `HOME=$TEST_FAKE_HOME` when calling make
+- This lets the Makefile's unset-GNUPGHOME pattern work transparently with test keys
+
+### Test Architecture
+- `tests/helpers.sh`: Setup/teardown, assertions, `run_make`/`run_as` wrappers
+- `tests/test_trove.sh`: 20 test functions, each with isolated setup/teardown
+- No external test framework (BATS, etc.) — pure bash with colored output
+- Each test: `begin_test` → `setup_test_env` → assertions → `pass_test`/`fail_test` → `teardown_test_env`
+- Summary: "X passed, Y failed" with exit code 0 on all-pass
+
+### Assertion Pattern
+- Assertions return 0/1 (not exit) — use `|| ok=false` pattern to accumulate failures
+- `$ok && pass_test` at end — only marks pass if all assertions succeeded
+- `assert_exit_code` captures exit code without `set -e` killing the test
+- `assert_output_contains` uses `grep -qF` for literal string matching
+
+### run_make vs run_as
+- `run_make`: Passes `STORE_DIR` and `GNUPGHOME` pointing to test store (for admin ops like add-user, list-*, revoke, delete)
+- `run_as <user>`: Also sets `PM_USER=<user>` and `HOME=$TEST_FAKE_HOME` (for user-context ops like create, read, grant)
+- The HOME override is the key trick — without it, `unset GNUPGHOME; gpg` can't find test private keys
+
+### Cleanup
+- 4 temp directories per test: `TEST_TMPDIR`, `TEST_GNUPGHOME`, `TEST_STORE_DIR`, `TEST_FAKE_HOME`
+- All cleaned up by `teardown_test_env` at end of each test
+- Verified: temp dir count is identical before/after test run (no leaks)
+
+### macOS Gotcha
+- macOS ships with bash 3.2 (/bin/bash) — the `check-deps` target correctly rejects it
+- Test for check-deps validates output content rather than exit code to remain portable
+- All test code avoids bash 4+ features (no associative arrays, no `${var,,}`, etc.)
+
+### Test Coverage (20 tests)
+1-2: Structure init, user registration
+3-4: Text and binary encrypt/decrypt round-trips
+5: Duplicate secret rejection
+6: Multi-user access via grant
+7-8: Revoke removes key file + denies subsequent reads
+9-10: List secrets (with user counts) and list users
+11: Delete secret removes directory
+12: Path traversal rejection (../ and /)
+13: Missing/empty parameter rejection
+14: Nonexistent secret read fails
+15: Unauthorized grant attempt fails
+16: Empty store lists return clean messages
+17: check-deps validates and reports tool status
+18: Delete nonexistent secret fails
+19: Revoke from user without access fails
+20: Duplicate grant attempt fails

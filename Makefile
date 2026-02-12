@@ -17,7 +17,10 @@ TROVE_USER := $(or $(PM_USER),$(shell \
   fi \
 ))
 
-.PHONY: check-deps init _generate-key _generate-iv _encrypt-content _decrypt-content _encrypt-key-for-user _decrypt-key test-crypto add-user create-secret read-secret grant-access revoke-access list-secrets list-users delete-secret
+.PHONY: check-deps init _generate-key _generate-iv _encrypt-content _decrypt-content _encrypt-key-for-user _decrypt-key test-crypto add-user create-secret read-secret grant-access revoke-access list-secrets list-users delete-secret test
+
+test:
+	@bash tests/test_trove.sh
 
 check-deps:
 	@echo "Checking dependencies..."
