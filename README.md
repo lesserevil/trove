@@ -155,4 +155,13 @@ The test suite creates temporary GPG keypairs in isolation — your real keys ar
 - All operations use `trap` cleanup to remove plaintext key material from temp files
 - Input names are validated against `[a-zA-Z0-9._@-]` to prevent path traversal
 - `*.secret.key` files are gitignored, but you should still delete them after transfer
-- Revocation deletes the user's encrypted key file. The underlying symmetric key is unchanged — for full forward secrecy, re-create the secret and re-grant access.
+- Revocation deletes the user's encrypted key file. The underlying symmetric key is unchanged — for full forward secrecy, use `make rotate-secret` after revoking.
+
+### GPG keys are generated without a passphrase
+
+`make new-user` and `make generate-key` both use `--passphrase ""` to create GPG keys with **no passphrase**. This means:
+
+- The private key in `~/.gnupg` is **unprotected at rest** — anyone with filesystem access to that directory can use it to decrypt secrets without any further authentication.
+- This is intentional for non-interactive use cases (CI, scripts), but is a poor choice for interactive human users on shared or multi-user machines.
+
+If you want passphrase-protected keys, generate the keypair manually with `gpg --full-generate-key`, then register it with `make add-user NAME=alice KEY=alice.pub`. The rest of the workflow is unchanged; GPG will prompt for your passphrase at decrypt time.

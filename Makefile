@@ -261,6 +261,8 @@ generate-key:
 	@echo "$(NAME)" | grep -qE '^[a-zA-Z0-9._@-]+$$' || { echo "Error: Invalid NAME '$(NAME)' — must match [a-zA-Z0-9._@-]+" >&2; exit 1; }
 	@USER_EMAIL="$(if $(EMAIL),$(EMAIL),$(NAME)@trove.local)"; \
 	echo "Generating GPG keypair for $$USER_EMAIL..."; \
+	# Note: --passphrase "" generates a key with no passphrase — private key is unprotected at rest.
+	# For passphrase-protected keys, generate manually and register with: make add-user NAME=... KEY=...
 	gpg --batch --yes --pinentry-mode loopback --passphrase "" \
 	  --quick-generate-key "$$USER_EMAIL" default default never 2>&1 | grep -v "^gpg:" || true; \
 	echo "Exporting public key to $(USERS_DIR)/$(NAME).pub..."; \
