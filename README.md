@@ -157,6 +157,15 @@ The test suite creates temporary GPG keypairs in isolation — your real keys ar
 - `*.secret.key` files are gitignored, but you should still delete them after transfer
 - Revocation deletes the user's encrypted key file. The underlying symmetric key is unchanged — for full forward secrecy, use `make rotate-secret` after revoking.
 
+### AES key visible in process table during encrypt/decrypt
+
+`openssl enc` requires the raw AES key to be passed via the `-K` flag, which means the key hex value appears in `/proc/<pid>/cmdline` for the duration of the openssl process. On Linux, any local user can read this with `ps aux` or directly from `/proc`.
+
+- **Single-user workstation:** Non-issue — you are the only local user.
+- **Shared server:** Any co-located user can briefly observe the key. **Do not use trove on a shared multi-user server** if this is a concern, or accept the risk given the short exposure window.
+
+This is an inherent limitation of `openssl enc -K`. Passing the key via an environment variable or a file descriptor is not supported for the `-K` (raw hex key) interface — it only accepts a command-line argument.
+
 ### GPG keys are generated without a passphrase
 
 `make new-user` and `make generate-key` both use `--passphrase ""` to create GPG keys with **no passphrase**. This means:

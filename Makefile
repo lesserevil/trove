@@ -94,6 +94,9 @@ _generate-iv:
 
 # _encrypt-content: Encrypt PLAINTEXT_FILE → OUTPUT_FILE using KEY_HEX and IV_HEX
 #   Required vars: KEY_HEX, IV_HEX, PLAINTEXT_FILE, OUTPUT_FILE
+#   Security note: KEY_HEX is passed via openssl's -K flag, which appears in
+#   /proc/<pid>/cmdline. This is inherent to openssl enc — there is no file/fd
+#   interface for raw hex keys. Safe on single-user machines; avoid on shared servers.
 _encrypt-content:
 	@test -n "$(KEY_HEX)" || { echo "Error: KEY_HEX is required" >&2; exit 1; }
 	@test -n "$(IV_HEX)" || { echo "Error: IV_HEX is required" >&2; exit 1; }
