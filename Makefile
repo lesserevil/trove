@@ -17,6 +17,10 @@ TROVE_USER := $(or $(PM_USER),$(shell \
   fi \
 ))
 
+# Validate TROVE_USER at load time — prevents path traversal or shell injection via PM_USER
+_VALID_TROVE_USER := $(shell [[ "$(TROVE_USER)" =~ ^[a-zA-Z0-9._@-]+$$ ]] && echo ok)
+$(if $(_VALID_TROVE_USER),,$(error Invalid TROVE_USER '$(TROVE_USER)' — must match [a-zA-Z0-9._@-]+))
+
 .PHONY: help check-deps init _generate-key _generate-iv _encrypt-content _decrypt-content _encrypt-key-for-user _decrypt-key test-crypto add-user generate-key import-key export-key import-secret-key new-user create-secret read-secret update-secret grant-access revoke-access list-secrets list-users delete-secret test
 
 ## help: Show this help message
