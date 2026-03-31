@@ -17,7 +17,7 @@ test_init_creates_structure() {
   assert_dir_exists "$TEST_STORE_DIR/.gnupg" || ok=false
 
   local perms
-  perms=$(stat -f '%Lp' "$TEST_STORE_DIR/.gnupg" 2>/dev/null || stat -c '%a' "$TEST_STORE_DIR/.gnupg" 2>/dev/null)
+  perms=$(stat -c '%a' "$TEST_STORE_DIR/.gnupg" 2>/dev/null || stat -f '%Lp' "$TEST_STORE_DIR/.gnupg" 2>/dev/null)
   assert_eq "700" "$perms" ".gnupg should have mode 700" || ok=false
 
   $ok && pass_test

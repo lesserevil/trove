@@ -8,6 +8,12 @@ GNUPGHOME := $(STORE_DIR)/.gnupg
 
 export GNUPGHOME
 
+# Personal GPG keyring used when decrypting wrapped AES keys.
+# Normally empty — gpg falls back to $HOME/.gnupg (the real user's keyring).
+# Override in tests to point gpg at an isolated test keyring without relying
+# on $HOME, which modern GPG agents ignore.
+PERSONAL_GNUPGHOME ?=
+
 # Identity resolution cascade
 TROVE_USER := $(or $(PM_USER),$(shell \
   if [ -f "$(USERS_DIR)/$$USER@$$(hostname -s).pub" ]; then \
@@ -158,7 +164,7 @@ _encrypt-key-for-user:
 _decrypt-key:
 	@test -n "$(KEY_ENC_FILE)" || { echo "Error: KEY_ENC_FILE is required" >&2; exit 1; }
 	@test -f "$(KEY_ENC_FILE)" || { echo "Error: KEY_ENC_FILE not found: $(KEY_ENC_FILE)" >&2; exit 1; }
-	@GNUPGHOME= gpg --batch --yes --quiet --decrypt "$(KEY_ENC_FILE)" || \
+	@GNUPGHOME="$(PERSONAL_GNUPGHOME)" gpg --batch --yes --quiet --decrypt "$(KEY_ENC_FILE)" || \
 	{ echo "Error: GPG decryption failed for $(KEY_ENC_FILE)" >&2; exit 1; }
 
 # ---------------------------------------------------------------------------
@@ -495,7 +501,7 @@ read-secret:
 	}; \
 	trap _cleanup EXIT; \
 	_TMPDIR=$$(mktemp -d); \
-	KEY_HEX=$$(unset GNUPGHOME; gpg --batch --yes --quiet --decrypt "$(SECRETS_DIR)/$(NAME)/$(TROVE_USER).key.enc") || \
+	KEY_HEX=$$(GNUPGHOME="$(PERSONAL_GNUPGHOME)" gpg --batch --yes --quiet --decrypt "$(SECRETS_DIR)/$(NAME)/$(TROVE_USER).key.enc") || \
 	{ echo "Error: Failed to decrypt key — check your GPG private key" >&2; exit 1; }; \
 	IV_HEX=$$(head -1 "$(SECRETS_DIR)/$(NAME)/secret.enc"); \
 	STORED_HMAC=$$(sed -n '2p' "$(SECRETS_DIR)/$(NAME)/secret.enc"); \
@@ -525,7 +531,7 @@ update-secret:
 	}; \
 	trap _cleanup EXIT; \
 	_TMPDIR=$$(mktemp -d); \
-	KEY_HEX=$$(unset GNUPGHOME; gpg --batch --yes --quiet --decrypt "$(SECRETS_DIR)/$(NAME)/$(TROVE_USER).key.enc") || \
+	KEY_HEX=$$(GNUPGHOME="$(PERSONAL_GNUPGHOME)" gpg --batch --yes --quiet --decrypt "$(SECRETS_DIR)/$(NAME)/$(TROVE_USER).key.enc") || \
 	{ echo "Error: Failed to decrypt key — check your GPG private key" >&2; exit 1; }; \
 	IV_HEX=$$(openssl rand -hex 16) || { echo "Error: Failed to generate IV" >&2; exit 1; }; \
 	openssl enc -aes-256-cbc -nosalt -K "$$KEY_HEX" -iv "$$IV_HEX" -in "$(FILE)" > "$${_TMPDIR}/cipher.bin" || \
@@ -557,7 +563,7 @@ grant-access:
 	}; \
 	trap _cleanup EXIT; \
 	_TMPDIR=$$(mktemp -d); \
-	KEY_HEX=$$(unset GNUPGHOME; gpg --batch --yes --quiet --decrypt "$(SECRETS_DIR)/$(NAME)/$(TROVE_USER).key.enc") || \
+	KEY_HEX=$$(GNUPGHOME="$(PERSONAL_GNUPGHOME)" gpg --batch --yes --quiet --decrypt "$(SECRETS_DIR)/$(NAME)/$(TROVE_USER).key.enc") || \
 	{ echo "Error: Failed to decrypt key — check your GPG private key" >&2; exit 1; }; \
 	echo "$$KEY_HEX" | gpg --batch --yes --trust-model always \
 	  --homedir "$(GNUPGHOME)" \
@@ -598,7 +604,7 @@ rotate-secret:
 	_TMPDIR=$$(mktemp -d); \
 	echo "Rotating secret '$(NAME)'..."; \
 	echo "[1/3] Decrypting current content with existing key..."; \
-	OLD_KEY_HEX=$$(unset GNUPGHOME; gpg --batch --yes --quiet --decrypt "$(SECRETS_DIR)/$(NAME)/$(TROVE_USER).key.enc") || \
+	OLD_KEY_HEX=$$(GNUPGHOME="$(PERSONAL_GNUPGHOME)" gpg --batch --yes --quiet --decrypt "$(SECRETS_DIR)/$(NAME)/$(TROVE_USER).key.enc") || \
 	{ echo "Error: Failed to decrypt key — check your GPG private key" >&2; exit 1; }; \
 	OLD_IV_HEX=$$(head -1 "$(SECRETS_DIR)/$(NAME)/secret.enc"); \
 	OLD_STORED_HMAC=$$(sed -n '2p' "$(SECRETS_DIR)/$(NAME)/secret.enc"); \

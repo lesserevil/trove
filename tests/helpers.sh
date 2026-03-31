@@ -41,13 +41,15 @@ setup_test_env() {
   REAL_HOME="$HOME"
 
   TEST_TMPDIR="$(mktemp -d)"
-  TEST_GNUPGHOME="$(mktemp -d)"
   TEST_STORE_DIR="$(mktemp -d)"
   TEST_FAKE_HOME="$(mktemp -d)"
-  chmod 700 "$TEST_GNUPGHOME"
 
-  # Symlink so `unset GNUPGHOME; gpg` falls back to test keys via $HOME/.gnupg
-  ln -s "$TEST_GNUPGHOME" "$TEST_FAKE_HOME/.gnupg"
+  # Place the test GPG keyring directly inside TEST_FAKE_HOME/.gnupg (not a symlink).
+  # GPG refuses to use a symlinked homedir, so read-secret (which calls gpg with
+  # `unset GNUPGHOME; HOME=$TEST_FAKE_HOME`) must find a real directory here.
+  TEST_GNUPGHOME="$TEST_FAKE_HOME/.gnupg"
+  mkdir -p "$TEST_GNUPGHOME"
+  chmod 700 "$TEST_GNUPGHOME"
 
   run_make init >/dev/null 2>&1
 
@@ -226,7 +228,7 @@ assert_output_not_contains() {
 # ---------------------------------------------------------------------------
 
 run_make() {
-  make -C "$TROVE_ROOT" "$@" \
+  make --no-print-directory -C "$TROVE_ROOT" "$@" \
     STORE_DIR="$TEST_STORE_DIR" \
     GNUPGHOME="$TEST_STORE_DIR/.gnupg"
 }
@@ -234,8 +236,9 @@ run_make() {
 run_as() {
   local user="$1"
   shift
-  HOME="$TEST_FAKE_HOME" make -C "$TROVE_ROOT" "$@" \
+  make --no-print-directory -C "$TROVE_ROOT" "$@" \
     STORE_DIR="$TEST_STORE_DIR" \
     GNUPGHOME="$TEST_STORE_DIR/.gnupg" \
+    PERSONAL_GNUPGHOME="$TEST_GNUPGHOME" \
     PM_USER="$user"
 }
