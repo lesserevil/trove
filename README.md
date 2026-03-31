@@ -121,6 +121,7 @@ Override for any command: `PM_USER=bob make read-secret NAME=dbpass`
 | `make update-secret NAME= FILE=` | Update a secret's content (keeps existing access) |
 | `make grant-access NAME= USER=` | Give a user access to a secret |
 | `make revoke-access NAME= USER=` | Remove a user's access to a secret |
+| `make rotate-secret NAME=` | Re-key a secret and re-grant all current users |
 | `make list-secrets` | List all secrets with access counts |
 | `make list-users` | List all registered users |
 | `make delete-secret NAME=` | Permanently delete a secret |
@@ -155,7 +156,21 @@ The test suite creates temporary GPG keypairs in isolation — your real keys ar
 - All operations use `trap` cleanup to remove plaintext key material from temp files
 - Input names are validated against `[a-zA-Z0-9._@-]` to prevent path traversal
 - `*.secret.key` files are gitignored, but you should still delete them after transfer
-- Revocation deletes the user's encrypted key file. The underlying symmetric key is unchanged — for full forward secrecy, use `make rotate-secret` after revoking.
+- Revocation is **soft**: deleting a user's `.key.enc` prevents future decryption but does not invalidate copies they already cloned. See below.
+
+### Revoking access — rotate the key too
+
+`make revoke-access` only removes the user's copy of the encrypted key. Anyone who cloned the repo before revocation still has their copy and can still decrypt `secret.enc` from their local clone indefinitely.
+
+For true revocation, rotate the secret immediately after revoking:
+
+```bash
+make revoke-access NAME=api-key USER=bob
+make rotate-secret NAME=api-key
+git add secrets/api-key && git commit -m "revoke bob, rotate api-key"
+```
+
+`make rotate-secret` decrypts the current content, generates fresh key material, re-encrypts, and re-wraps the key for every user who still has a `.key.enc` file — excluding the just-revoked user. Bob's old clone can still decrypt the old ciphertext, but the new ciphertext in the repo is protected by a key Bob has never seen.
 
 ### AES key visible in process table during encrypt/decrypt
 

@@ -21,7 +21,7 @@ TROVE_USER := $(or $(PM_USER),$(shell \
 _VALID_TROVE_USER := $(shell [[ "$(TROVE_USER)" =~ ^[a-zA-Z0-9._@-]+$$ ]] && echo ok)
 $(if $(_VALID_TROVE_USER),,$(error Invalid TROVE_USER '$(TROVE_USER)' — must match [a-zA-Z0-9._@-]+))
 
-.PHONY: help check-deps init _generate-key _generate-iv _encrypt-content _decrypt-content _encrypt-key-for-user _decrypt-key test-crypto add-user generate-key import-key export-key import-secret-key new-user create-secret read-secret update-secret grant-access revoke-access list-secrets list-users delete-secret test
+.PHONY: help check-deps init _generate-key _generate-iv _encrypt-content _decrypt-content _encrypt-key-for-user _decrypt-key test-crypto add-user generate-key import-key export-key import-secret-key new-user create-secret read-secret update-secret grant-access revoke-access rotate-secret list-secrets list-users delete-secret test
 
 ## help: Show this help message
 help:
@@ -536,6 +536,62 @@ revoke-access:
 	@test -f "$(SECRETS_DIR)/$(NAME)/$(USER).key.enc" || { echo "Error: User '$(USER)' does not have access to secret '$(NAME)'" >&2; exit 1; }
 	@rm -f "$(SECRETS_DIR)/$(NAME)/$(USER).key.enc" || { echo "Error: Failed to revoke access" >&2; exit 1; }
 	@echo "Access to secret '$(NAME)' revoked for user '$(USER)'"
+
+# rotate-secret: Re-encrypt a secret with new key material, re-granting all current users
+#   Required vars: NAME
+#   Use after revoking a user to ensure the revoked user's copy of the key can no longer
+#   decrypt the new ciphertext.
+## rotate-secret: Re-key a secret and re-grant all current users (NAME=)
+rotate-secret:
+	@test -n "$(NAME)" || { echo "Error: NAME= is required" >&2; exit 1; }
+	@echo "$(NAME)" | grep -qE '^[a-zA-Z0-9._/-]+$$' || { echo "Error: Invalid NAME '$(NAME)' — must match [a-zA-Z0-9._/-]+" >&2; exit 1; }
+	@echo "$(NAME)" | grep -qE '\.\./|^\.\.|^/' && { echo "Error: Invalid NAME '$(NAME)' — path traversal not allowed" >&2; exit 1; } || true
+	@test -d "$(SECRETS_DIR)/$(NAME)" || { echo "Error: Secret '$(NAME)' does not exist" >&2; exit 1; }
+	@test -f "$(SECRETS_DIR)/$(NAME)/$(TROVE_USER).key.enc" || { echo "Error: Access denied — user '$(TROVE_USER)' does not have access to secret '$(NAME)'" >&2; exit 1; }
+	@_cleanup() { \
+	  if [ -n "$${_TMPDIR:-}" ] && [ -d "$${_TMPDIR}" ]; then rm -rf "$${_TMPDIR}"; fi; \
+	}; \
+	trap _cleanup EXIT; \
+	_TMPDIR=$$(mktemp -d); \
+	echo "Rotating secret '$(NAME)'..."; \
+	echo "[1/3] Decrypting current content with existing key..."; \
+	OLD_KEY_HEX=$$(unset GNUPGHOME; gpg --batch --yes --quiet --decrypt "$(SECRETS_DIR)/$(NAME)/$(TROVE_USER).key.enc") || \
+	{ echo "Error: Failed to decrypt key — check your GPG private key" >&2; exit 1; }; \
+	OLD_IV_HEX=$$(head -1 "$(SECRETS_DIR)/$(NAME)/secret.enc"); \
+	tail -n +2 "$(SECRETS_DIR)/$(NAME)/secret.enc" | \
+	openssl enc -aes-256-cbc -d -nosalt -K "$$OLD_KEY_HEX" -iv "$$OLD_IV_HEX" > "$${_TMPDIR}/plaintext" || \
+	{ echo "Error: Failed to decrypt secret content" >&2; exit 1; }; \
+	echo "[2/3] Re-encrypting with new key material..."; \
+	NEW_KEY_HEX=$$(openssl rand -hex 32) || { echo "Error: Failed to generate new AES key" >&2; exit 1; }; \
+	NEW_IV_HEX=$$(openssl rand -hex 16) || { echo "Error: Failed to generate new IV" >&2; exit 1; }; \
+	echo "$$NEW_IV_HEX" > "$${_TMPDIR}/secret.enc" && \
+	openssl enc -aes-256-cbc -nosalt -K "$$NEW_KEY_HEX" -iv "$$NEW_IV_HEX" \
+	  -in "$${_TMPDIR}/plaintext" >> "$${_TMPDIR}/secret.enc" || \
+	{ echo "Error: Re-encryption failed" >&2; exit 1; }; \
+	echo "[3/3] Re-wrapping key for all current users..."; \
+	for key_enc in "$(SECRETS_DIR)/$(NAME)"/*.key.enc; do \
+	  user=$$(basename "$$key_enc" .key.enc); \
+	  if [ -f "$(USERS_DIR)/$$user.pub" ]; then \
+	    echo "$$NEW_KEY_HEX" | gpg --batch --yes --trust-model always \
+	      --homedir "$(GNUPGHOME)" \
+	      --recipient-file "$(USERS_DIR)/$$user.pub" \
+	      --encrypt --armor \
+	      --output "$${_TMPDIR}/$$user.key.enc" || \
+	    { echo "Error: Failed to re-encrypt key for user '$$user'" >&2; exit 1; }; \
+	    echo "  ✓ $$user"; \
+	  else \
+	    echo "  ⚠  Skipping $$user — no public key found in $(USERS_DIR)" >&2; \
+	  fi; \
+	done; \
+	cp "$${_TMPDIR}/secret.enc" "$(SECRETS_DIR)/$(NAME)/secret.enc" || \
+	{ echo "Error: Failed to write rotated secret" >&2; exit 1; }; \
+	for new_key_enc in "$${_TMPDIR}"/*.key.enc; do \
+	  [ -f "$$new_key_enc" ] || continue; \
+	  user=$$(basename "$$new_key_enc" .key.enc); \
+	  cp "$$new_key_enc" "$(SECRETS_DIR)/$(NAME)/$$user.key.enc" || \
+	  { echo "Error: Failed to write rotated key for user '$$user'" >&2; exit 1; }; \
+	done; \
+	echo "Secret '$(NAME)' rotated — all current users re-granted"
 
 # ---------------------------------------------------------------------------
 # Utility Operations
