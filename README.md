@@ -19,7 +19,7 @@ users/
   bob.pub               # Bob's GPG public key
 ```
 
-- Content is encrypted with a random AES-256 key + IV
+- Content is encrypted with a random AES-256 key + IV, authenticated with HMAC-SHA256
 - The AES key is wrapped per-user with GPG (asymmetric)
 - Decryption uses the user's personal GPG private key (`~/.gnupg`)
 - An isolated GPG keyring (`.gnupg/`) stores public keys only — your personal keyring is never touched for imports
@@ -151,7 +151,7 @@ The test suite creates temporary GPG keypairs in isolation — your real keys ar
 
 ## Security Notes
 
-- Symmetric keys are AES-256-CBC with random IV (prepended to ciphertext)
+- Symmetric encryption uses AES-256-CBC with a random IV and a HMAC-SHA256 integrity tag (Encrypt-then-MAC). The `.enc` file format is: `IV_HEX\nHMAC_HEX\n<binary ciphertext>`. Decryption verifies the HMAC before passing ciphertext to OpenSSL — a tampered file is rejected before any decryption occurs.
 - Per-user key wrapping uses GPG asymmetric encryption
 - All operations use `trap` cleanup to remove plaintext key material from temp files
 - Input names are validated against `[a-zA-Z0-9._@-]` to prevent path traversal

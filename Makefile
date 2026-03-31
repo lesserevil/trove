@@ -103,12 +103,18 @@ _encrypt-content:
 	@test -n "$(PLAINTEXT_FILE)" || { echo "Error: PLAINTEXT_FILE is required" >&2; exit 1; }
 	@test -n "$(OUTPUT_FILE)" || { echo "Error: OUTPUT_FILE is required" >&2; exit 1; }
 	@test -f "$(PLAINTEXT_FILE)" || { echo "Error: PLAINTEXT_FILE not found: $(PLAINTEXT_FILE)" >&2; exit 1; }
-	@_cleanup() { if [ -n "$${_PARTIAL_OUT:-}" ] && [ -f "$${_PARTIAL_OUT}" ]; then rm -f "$${_PARTIAL_OUT}"; fi; }; \
+	@_CIPHER_TMP="$(OUTPUT_FILE).tmp"; \
+	_cleanup() { rm -f "$${_CIPHER_TMP}" "$(OUTPUT_FILE)"; }; \
 	trap _cleanup EXIT; \
-	_PARTIAL_OUT="$(OUTPUT_FILE)"; \
-	echo "$(IV_HEX)" > "$(OUTPUT_FILE)" && \
-	openssl enc -aes-256-cbc -nosalt -K "$(KEY_HEX)" -iv "$(IV_HEX)" -in "$(PLAINTEXT_FILE)" >> "$(OUTPUT_FILE)" || \
-	{ echo "Error: encryption failed" >&2; rm -f "$(OUTPUT_FILE)"; exit 1; }
+	openssl enc -aes-256-cbc -nosalt -K "$(KEY_HEX)" -iv "$(IV_HEX)" -in "$(PLAINTEXT_FILE)" > "$${_CIPHER_TMP}" || \
+	{ echo "Error: encryption failed" >&2; exit 1; }; \
+	HMAC_HEX=$$(printf '%s' "$(IV_HEX)" | cat - "$${_CIPHER_TMP}" | \
+	  openssl dgst -sha256 -mac hmac -macopt hexkey:"$(KEY_HEX)" -binary | xxd -p -c 256) || \
+	{ echo "Error: HMAC computation failed" >&2; exit 1; }; \
+	{ printf '%s\n' "$(IV_HEX)" "$$HMAC_HEX"; cat "$${_CIPHER_TMP}"; } > "$(OUTPUT_FILE)" || \
+	{ echo "Error: failed to write output file" >&2; exit 1; }; \
+	rm -f "$${_CIPHER_TMP}"; \
+	trap - EXIT
 
 # _decrypt-content: Decrypt SECRET_ENC_FILE to stdout using KEY_HEX
 #   Required vars: KEY_HEX, SECRET_ENC_FILE
@@ -116,8 +122,18 @@ _decrypt-content:
 	@test -n "$(KEY_HEX)" || { echo "Error: KEY_HEX is required" >&2; exit 1; }
 	@test -n "$(SECRET_ENC_FILE)" || { echo "Error: SECRET_ENC_FILE is required" >&2; exit 1; }
 	@test -f "$(SECRET_ENC_FILE)" || { echo "Error: SECRET_ENC_FILE not found: $(SECRET_ENC_FILE)" >&2; exit 1; }
-	@IV_HEX=$$(head -1 "$(SECRET_ENC_FILE)"); \
-	tail -n +2 "$(SECRET_ENC_FILE)" | openssl enc -aes-256-cbc -d -nosalt -K "$(KEY_HEX)" -iv "$$IV_HEX" || \
+	@_TMPDIR=$$(mktemp -d); \
+	_cleanup() { rm -rf "$${_TMPDIR}"; }; \
+	trap _cleanup EXIT; \
+	IV_HEX=$$(head -1 "$(SECRET_ENC_FILE)"); \
+	STORED_HMAC=$$(sed -n '2p' "$(SECRET_ENC_FILE)"); \
+	tail -n +3 "$(SECRET_ENC_FILE)" > "$${_TMPDIR}/cipher.bin"; \
+	COMPUTED_HMAC=$$(printf '%s' "$$IV_HEX" | cat - "$${_TMPDIR}/cipher.bin" | \
+	  openssl dgst -sha256 -mac hmac -macopt hexkey:"$(KEY_HEX)" -binary | xxd -p -c 256) || \
+	{ echo "Error: HMAC computation failed" >&2; exit 1; }; \
+	[ "$$COMPUTED_HMAC" = "$$STORED_HMAC" ] || \
+	{ echo "Error: HMAC verification failed — ciphertext may be corrupt or tampered" >&2; exit 1; }; \
+	openssl enc -aes-256-cbc -d -nosalt -K "$(KEY_HEX)" -iv "$$IV_HEX" -in "$${_TMPDIR}/cipher.bin" || \
 	{ echo "Error: decryption failed" >&2; exit 1; }
 
 # _encrypt-key-for-user: Encrypt KEY_HEX for USERNAME → OUTPUT_FILE (GPG)
@@ -183,9 +199,11 @@ test-crypto:
 	echo "--- Text Round-Trip Test ---"; \
 	echo "[5/8] Encrypting text content..."; \
 	echo "test secret content 12345" > "$$TEST_TMPDIR/plaintext.txt"; \
-	echo "$$IV_HEX" > "$(SECRETS_DIR)/secret.enc"; \
 	openssl enc -aes-256-cbc -nosalt -K "$$KEY_HEX" -iv "$$IV_HEX" \
-	  -in "$$TEST_TMPDIR/plaintext.txt" >> "$(SECRETS_DIR)/secret.enc"; \
+	  -in "$$TEST_TMPDIR/plaintext.txt" > "$$TEST_TMPDIR/cipher_text.bin"; \
+	HMAC_HEX=$$(printf '%s' "$$IV_HEX" | cat - "$$TEST_TMPDIR/cipher_text.bin" | \
+	  openssl dgst -sha256 -mac hmac -macopt hexkey:"$$KEY_HEX" -binary | xxd -p -c 256); \
+	{ printf '%s\n' "$$IV_HEX" "$$HMAC_HEX"; cat "$$TEST_TMPDIR/cipher_text.bin"; } > "$(SECRETS_DIR)/secret.enc"; \
 	\
 	echo "[6/8] Encrypting key for test user..."; \
 	echo "$$KEY_HEX" | gpg --batch --yes --trust-model always \
@@ -199,8 +217,13 @@ test-crypto:
 	  --pinentry-mode loopback --passphrase "" \
 	  --decrypt "$(SECRETS_DIR)/testuser.key.enc"); \
 	RECOVERED_IV=$$(head -1 "$(SECRETS_DIR)/secret.enc"); \
-	RECOVERED_TEXT=$$(tail -n +2 "$(SECRETS_DIR)/secret.enc" | \
-	  openssl enc -aes-256-cbc -d -nosalt -K "$$RECOVERED_KEY" -iv "$$RECOVERED_IV"); \
+	STORED_HMAC=$$(sed -n '2p' "$(SECRETS_DIR)/secret.enc"); \
+	tail -n +3 "$(SECRETS_DIR)/secret.enc" > "$$TEST_TMPDIR/cipher_text_rec.bin"; \
+	COMPUTED_HMAC=$$(printf '%s' "$$RECOVERED_IV" | cat - "$$TEST_TMPDIR/cipher_text_rec.bin" | \
+	  openssl dgst -sha256 -mac hmac -macopt hexkey:"$$RECOVERED_KEY" -binary | xxd -p -c 256); \
+	[ "$$COMPUTED_HMAC" = "$$STORED_HMAC" ] || { echo "  ✗ FAIL: HMAC verification failed" >&2; exit 1; }; \
+	RECOVERED_TEXT=$$(openssl enc -aes-256-cbc -d -nosalt -K "$$RECOVERED_KEY" -iv "$$RECOVERED_IV" \
+	  -in "$$TEST_TMPDIR/cipher_text_rec.bin"); \
 	ORIGINAL_TEXT=$$(cat "$$TEST_TMPDIR/plaintext.txt"); \
 	if [ "$$RECOVERED_TEXT" = "$$ORIGINAL_TEXT" ]; then \
 	  echo "  ✓ PASS: Text round-trip matches"; \
@@ -218,13 +241,19 @@ test-crypto:
 	ORIG_SHA=$$(shasum -a 256 "$$TEST_TMPDIR/binary.dat" | awk '{print $$1}'); \
 	BIN_KEY=$$(openssl rand -hex 32); \
 	BIN_IV=$$(openssl rand -hex 16); \
-	echo "$$BIN_IV" > "$(SECRETS_DIR)/binary.enc"; \
 	openssl enc -aes-256-cbc -nosalt -K "$$BIN_KEY" -iv "$$BIN_IV" \
-	  -in "$$TEST_TMPDIR/binary.dat" >> "$(SECRETS_DIR)/binary.enc"; \
+	  -in "$$TEST_TMPDIR/binary.dat" > "$$TEST_TMPDIR/binary_cipher.bin"; \
+	BIN_HMAC=$$(printf '%s' "$$BIN_IV" | cat - "$$TEST_TMPDIR/binary_cipher.bin" | \
+	  openssl dgst -sha256 -mac hmac -macopt hexkey:"$$BIN_KEY" -binary | xxd -p -c 256); \
+	{ printf '%s\n' "$$BIN_IV" "$$BIN_HMAC"; cat "$$TEST_TMPDIR/binary_cipher.bin"; } > "$(SECRETS_DIR)/binary.enc"; \
 	DEC_IV=$$(head -1 "$(SECRETS_DIR)/binary.enc"); \
-	tail -n +2 "$(SECRETS_DIR)/binary.enc" | \
-	  openssl enc -aes-256-cbc -d -nosalt -K "$$BIN_KEY" -iv "$$DEC_IV" \
-	  > "$$TEST_TMPDIR/binary_recovered.dat"; \
+	DEC_STORED_HMAC=$$(sed -n '2p' "$(SECRETS_DIR)/binary.enc"); \
+	tail -n +3 "$(SECRETS_DIR)/binary.enc" > "$$TEST_TMPDIR/binary_dec_cipher.bin"; \
+	DEC_COMPUTED_HMAC=$$(printf '%s' "$$DEC_IV" | cat - "$$TEST_TMPDIR/binary_dec_cipher.bin" | \
+	  openssl dgst -sha256 -mac hmac -macopt hexkey:"$$BIN_KEY" -binary | xxd -p -c 256); \
+	[ "$$DEC_COMPUTED_HMAC" = "$$DEC_STORED_HMAC" ] || { echo "  ✗ FAIL: HMAC verification failed" >&2; exit 1; }; \
+	openssl enc -aes-256-cbc -d -nosalt -K "$$BIN_KEY" -iv "$$DEC_IV" \
+	  -in "$$TEST_TMPDIR/binary_dec_cipher.bin" > "$$TEST_TMPDIR/binary_recovered.dat"; \
 	RECV_SHA=$$(shasum -a 256 "$$TEST_TMPDIR/binary_recovered.dat" | awk '{print $$1}'); \
 	if [ "$$ORIG_SHA" = "$$RECV_SHA" ]; then \
 	  echo "  ✓ PASS: Binary round-trip SHA-256 matches"; \
@@ -437,9 +466,13 @@ create-secret:
 	IV_HEX=$$(openssl rand -hex 16) || { echo "Error: Failed to generate IV" >&2; exit 1; }; \
 	mkdir -p "$$(dirname "$$SECRET_DIR")" || { echo "Error: Failed to create parent directories" >&2; exit 1; }; \
 	mkdir -p "$$SECRET_DIR" || { echo "Error: Failed to create secret directory" >&2; exit 1; }; \
-	echo "$$IV_HEX" > "$$SECRET_DIR/secret.enc" && \
-	openssl enc -aes-256-cbc -nosalt -K "$$KEY_HEX" -iv "$$IV_HEX" -in "$(FILE)" >> "$$SECRET_DIR/secret.enc" || \
+	openssl enc -aes-256-cbc -nosalt -K "$$KEY_HEX" -iv "$$IV_HEX" -in "$(FILE)" > "$${_TMPDIR}/cipher.bin" || \
 	{ echo "Error: Encryption failed" >&2; rm -rf "$$SECRET_DIR"; exit 1; }; \
+	HMAC_HEX=$$(printf '%s' "$$IV_HEX" | cat - "$${_TMPDIR}/cipher.bin" | \
+	  openssl dgst -sha256 -mac hmac -macopt hexkey:"$$KEY_HEX" -binary | xxd -p -c 256) || \
+	{ echo "Error: HMAC computation failed" >&2; rm -rf "$$SECRET_DIR"; exit 1; }; \
+	{ printf '%s\n' "$$IV_HEX" "$$HMAC_HEX"; cat "$${_TMPDIR}/cipher.bin"; } > "$$SECRET_DIR/secret.enc" || \
+	{ echo "Error: Failed to write secret" >&2; rm -rf "$$SECRET_DIR"; exit 1; }; \
 	echo "$$KEY_HEX" | gpg --batch --yes --trust-model always \
 	  --homedir "$(GNUPGHOME)" \
 	  --recipient-file "$(USERS_DIR)/$(TROVE_USER).pub" \
@@ -465,8 +498,14 @@ read-secret:
 	KEY_HEX=$$(unset GNUPGHOME; gpg --batch --yes --quiet --decrypt "$(SECRETS_DIR)/$(NAME)/$(TROVE_USER).key.enc") || \
 	{ echo "Error: Failed to decrypt key — check your GPG private key" >&2; exit 1; }; \
 	IV_HEX=$$(head -1 "$(SECRETS_DIR)/$(NAME)/secret.enc"); \
-	tail -n +2 "$(SECRETS_DIR)/$(NAME)/secret.enc" | \
-	openssl enc -aes-256-cbc -d -nosalt -K "$$KEY_HEX" -iv "$$IV_HEX" || \
+	STORED_HMAC=$$(sed -n '2p' "$(SECRETS_DIR)/$(NAME)/secret.enc"); \
+	tail -n +3 "$(SECRETS_DIR)/$(NAME)/secret.enc" > "$${_TMPDIR}/cipher.bin"; \
+	COMPUTED_HMAC=$$(printf '%s' "$$IV_HEX" | cat - "$${_TMPDIR}/cipher.bin" | \
+	  openssl dgst -sha256 -mac hmac -macopt hexkey:"$$KEY_HEX" -binary | xxd -p -c 256) || \
+	{ echo "Error: HMAC computation failed" >&2; exit 1; }; \
+	[ "$$COMPUTED_HMAC" = "$$STORED_HMAC" ] || \
+	{ echo "Error: HMAC verification failed — ciphertext may be corrupt or tampered" >&2; exit 1; }; \
+	openssl enc -aes-256-cbc -d -nosalt -K "$$KEY_HEX" -iv "$$IV_HEX" -in "$${_TMPDIR}/cipher.bin" || \
 	{ echo "Error: Failed to decrypt secret content" >&2; exit 1; }
 
 # update-secret: Re-encrypt a secret with new content, keeping the same symmetric key
@@ -489,9 +528,13 @@ update-secret:
 	KEY_HEX=$$(unset GNUPGHOME; gpg --batch --yes --quiet --decrypt "$(SECRETS_DIR)/$(NAME)/$(TROVE_USER).key.enc") || \
 	{ echo "Error: Failed to decrypt key — check your GPG private key" >&2; exit 1; }; \
 	IV_HEX=$$(openssl rand -hex 16) || { echo "Error: Failed to generate IV" >&2; exit 1; }; \
-	echo "$$IV_HEX" > "$${_TMPDIR}/secret.enc" && \
-	openssl enc -aes-256-cbc -nosalt -K "$$KEY_HEX" -iv "$$IV_HEX" -in "$(FILE)" >> "$${_TMPDIR}/secret.enc" || \
+	openssl enc -aes-256-cbc -nosalt -K "$$KEY_HEX" -iv "$$IV_HEX" -in "$(FILE)" > "$${_TMPDIR}/cipher.bin" || \
 	{ echo "Error: Encryption failed" >&2; exit 1; }; \
+	HMAC_HEX=$$(printf '%s' "$$IV_HEX" | cat - "$${_TMPDIR}/cipher.bin" | \
+	  openssl dgst -sha256 -mac hmac -macopt hexkey:"$$KEY_HEX" -binary | xxd -p -c 256) || \
+	{ echo "Error: HMAC computation failed" >&2; exit 1; }; \
+	{ printf '%s\n' "$$IV_HEX" "$$HMAC_HEX"; cat "$${_TMPDIR}/cipher.bin"; } > "$${_TMPDIR}/secret.enc" || \
+	{ echo "Error: Failed to write encrypted content" >&2; exit 1; }; \
 	mv "$${_TMPDIR}/secret.enc" "$(SECRETS_DIR)/$(NAME)/secret.enc" || \
 	{ echo "Error: Failed to update secret" >&2; exit 1; }; \
 	echo "Secret '$(NAME)' updated"
@@ -558,16 +601,27 @@ rotate-secret:
 	OLD_KEY_HEX=$$(unset GNUPGHOME; gpg --batch --yes --quiet --decrypt "$(SECRETS_DIR)/$(NAME)/$(TROVE_USER).key.enc") || \
 	{ echo "Error: Failed to decrypt key — check your GPG private key" >&2; exit 1; }; \
 	OLD_IV_HEX=$$(head -1 "$(SECRETS_DIR)/$(NAME)/secret.enc"); \
-	tail -n +2 "$(SECRETS_DIR)/$(NAME)/secret.enc" | \
-	openssl enc -aes-256-cbc -d -nosalt -K "$$OLD_KEY_HEX" -iv "$$OLD_IV_HEX" > "$${_TMPDIR}/plaintext" || \
+	OLD_STORED_HMAC=$$(sed -n '2p' "$(SECRETS_DIR)/$(NAME)/secret.enc"); \
+	tail -n +3 "$(SECRETS_DIR)/$(NAME)/secret.enc" > "$${_TMPDIR}/old_cipher.bin"; \
+	OLD_COMPUTED_HMAC=$$(printf '%s' "$$OLD_IV_HEX" | cat - "$${_TMPDIR}/old_cipher.bin" | \
+	  openssl dgst -sha256 -mac hmac -macopt hexkey:"$$OLD_KEY_HEX" -binary | xxd -p -c 256) || \
+	{ echo "Error: HMAC computation failed" >&2; exit 1; }; \
+	[ "$$OLD_COMPUTED_HMAC" = "$$OLD_STORED_HMAC" ] || \
+	{ echo "Error: HMAC verification failed — ciphertext may be corrupt or tampered" >&2; exit 1; }; \
+	openssl enc -aes-256-cbc -d -nosalt -K "$$OLD_KEY_HEX" -iv "$$OLD_IV_HEX" \
+	  -in "$${_TMPDIR}/old_cipher.bin" > "$${_TMPDIR}/plaintext" || \
 	{ echo "Error: Failed to decrypt secret content" >&2; exit 1; }; \
 	echo "[2/3] Re-encrypting with new key material..."; \
 	NEW_KEY_HEX=$$(openssl rand -hex 32) || { echo "Error: Failed to generate new AES key" >&2; exit 1; }; \
 	NEW_IV_HEX=$$(openssl rand -hex 16) || { echo "Error: Failed to generate new IV" >&2; exit 1; }; \
-	echo "$$NEW_IV_HEX" > "$${_TMPDIR}/secret.enc" && \
 	openssl enc -aes-256-cbc -nosalt -K "$$NEW_KEY_HEX" -iv "$$NEW_IV_HEX" \
-	  -in "$${_TMPDIR}/plaintext" >> "$${_TMPDIR}/secret.enc" || \
+	  -in "$${_TMPDIR}/plaintext" > "$${_TMPDIR}/new_cipher.bin" || \
 	{ echo "Error: Re-encryption failed" >&2; exit 1; }; \
+	NEW_HMAC_HEX=$$(printf '%s' "$$NEW_IV_HEX" | cat - "$${_TMPDIR}/new_cipher.bin" | \
+	  openssl dgst -sha256 -mac hmac -macopt hexkey:"$$NEW_KEY_HEX" -binary | xxd -p -c 256) || \
+	{ echo "Error: HMAC computation failed" >&2; exit 1; }; \
+	{ printf '%s\n' "$$NEW_IV_HEX" "$$NEW_HMAC_HEX"; cat "$${_TMPDIR}/new_cipher.bin"; } > "$${_TMPDIR}/secret.enc" || \
+	{ echo "Error: Failed to write rotated secret" >&2; exit 1; }; \
 	echo "[3/3] Re-wrapping key for all current users..."; \
 	for key_enc in "$(SECRETS_DIR)/$(NAME)"/*.key.enc; do \
 	  user=$$(basename "$$key_enc" .key.enc); \
