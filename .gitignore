@@ -1,0 +1,21 @@
+# Isolated GPG keyring — contains only public keys but should not be committed
+# to a shared upstream template; each fork maintains its own keyring
+.gnupg/
+
+# Exported GPG secret keys — delete after transfer, never commit
+*.secret.key
+
+# Decrypted plaintext — never commit
+*.dec
+*.plain
+*.tmp
+tmp/
+
+# Editor backup/swap files
+*.swp
+*.swo
+*~
+
+# OS metadata
+.DS_Store
+Thumbs.db
