@@ -149,6 +149,30 @@ bash tests/test_trove.sh
 
 The test suite creates temporary GPG keypairs in isolation — your real keys are never used.
 
+## Agent Skill
+
+This repo ships an [Agent Skills](https://agentskills.io/) skill at `.agents/skills/trove/SKILL.md` describing the full trove workflow (create/read/update/rotate/grant/revoke secrets, user lifecycle, identity resolution, security caveats, troubleshooting). Coding agents that support the standard can load it on demand so they know how to operate trove without you pasting the whole README.
+
+### pi
+
+No install needed. pi auto-discovers `.agents/skills/` at the project level — the skill is available after you trust the project on first session. Force-load it with `/skill:trove`.
+
+### Codex (OpenAI)
+
+Codex discovers user skills under `~/.codex/skills/`. Symlink the skill in (per machine, so it stays in sync with the repo):
+
+```bash
+ln -s "$(pwd)/.agents/skills/trove" ~/.codex/skills/trove
+```
+
+### Claude Code
+
+Check your version's current docs for Agent Skills support. If it scans project-level `.agents/skills/`, cloning is sufficient. If it uses a dedicated skills directory, symlink as above into that directory.
+
+### Verification
+
+After installing, the skill `trove` should appear in your agent's skill list. Ask the agent to manage a secret (e.g. "create a secret named dbpass from /tmp/dbpass.txt") and it should invoke the `make` targets directly.
+
 ## Security Notes
 
 - Symmetric encryption uses AES-256-CBC with a random IV and a HMAC-SHA256 integrity tag (Encrypt-then-MAC). The `.enc` file format is: `IV_HEX\nHMAC_HEX\n<binary ciphertext>`. Decryption verifies the HMAC before passing ciphertext to OpenSSL — a tampered file is rejected before any decryption occurs.
