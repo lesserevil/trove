@@ -6,7 +6,11 @@
 
 This plan addresses the seven findings from the security review of commit `3c6849a`. It proposes implementation changes, a migration path for existing stores, and regression tests that demonstrate each fix. The review reproduced the findings with temporary stores and synthetic keys; all 25 existing integration tests passed.
 
-Status: proposed work, revised to the selected architecture: one self-contained Go executable with embedded OpenPGP support. Writing this plan does not change the implementation or migrate any keys or secrets. The plan is approved for inclusion in the Literate AI adoption branch and merge request.
+Status: implementation in progress under ADOPT-002. The selected architecture is
+one self-contained Go executable with embedded OpenPGP support. A native draft is
+written and its core tests pass; dependency downloads, full crypto/CLI acceptance,
+source admission, remaining target runtime qualification and release remain pending. No real keys or secrets are migrated.
+The plan was approved and included in the merged Literate AI adoption branch.
 
 ## Scope and priorities
 

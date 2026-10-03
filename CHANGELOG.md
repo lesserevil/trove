@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+- Trove native candidate: added the direct Go CLI, embedded OpenPGP adapter,
+  protected external identities, contained store operations, authenticated v2
+  content, explicit recoverable CBC migration, and five-target archive tooling.
+  The full native suite, packaged CLI tests and synthetic GPG interoperability pass
+  on macOS arm64. Built all five CGO-free candidate archives with dependency notices
+  and checksums. Patched the Go toolchain and transitive crypto dependencies after
+  scanning; no reachable vulnerability traces remain in the local scan.
+  The draft is not admitted or released, and existing secrets remain untouched.
+
+- Replaced destructive legacy crypto smoke-test cleanup with one private temporary
+  allocation and added sentinel, failure, and signal regressions. The full retained
+  26-case suite passes and Literate AI has refreshed its baseline and parity evidence.
+- Inventoried and classified retained application boundaries for the Go rewrite.
+
 - Initialized the project with Literate AI's specification-led lifecycle and durable
   user-directed work queue.
 - Preserved the existing Makefile application as a retained Component and recorded

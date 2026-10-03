@@ -83,7 +83,7 @@
     "runner_identity": {
       "schema": "urn:literate-ai:schema:v1:content-identity",
       "algorithm": "sha256",
-      "digest": "ea7499f12f381fa05768da87ca1a3471e4726ad829e0f634309ece92d82ec9d6"
+      "digest": "71f0bf9c70a5d3b3de739fc927dd0bc0ef5a9d7bc25819ef85c0b916cd92de8d"
     },
     "required_evidence_kinds": [
       "build-result",
@@ -100,8 +100,9 @@
     "minimum_test_count": 1
   },
   "default_flavor_selectors": [
-    "+flavor://literate-ai/lang-go",
+    "+flavor://trove/go-trove",
     "+flavor://literate-ai/os-macos",
+    "+flavor://trove/build-trove",
     "+flavor://legacy-adoption/build-legacy-shim"
   ],
   "mcp_roots": [

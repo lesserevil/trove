@@ -564,6 +564,15 @@ test_update_without_access_fails() {
 # ===========================================================================
 # Run all tests
 # ===========================================================================
+test_smoke_safety() {
+  begin_test "crypto smoke test confines setup and cleanup on success, failure, and signals"
+  if bash "$SCRIPT_DIR/test_smoke_safety.sh"; then
+    pass_test
+  else
+    fail_test "smoke safety regression failed"
+  fi
+}
+
 echo ""
 echo "${BOLD}Trove Integration Test Suite${RESET}"
 echo "${BOLD}========================================${RESET}"
@@ -594,6 +603,7 @@ test_update_secret_preserves_access
 test_update_secret_binary
 test_update_nonexistent_fails
 test_update_without_access_fails
+test_smoke_safety
 
 print_summary
 

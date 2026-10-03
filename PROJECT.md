@@ -1,7 +1,7 @@
 # Trove
 
 Trove is a small, Git-friendly secret store with per-user public-key access.
-Its defining constraint is simple installation: the planned application is one
+Its defining constraint is simple installation: the replacement application is one
 self-contained Go executable with embedded OpenPGP support. End users must not
 need a language runtime, Make, a shell helper, or an external crypto command.
 GPG may be used once to export an existing identity for import.
@@ -12,7 +12,10 @@ release binaries. Make is a contributor build/test convenience.
 Literate AI currently wraps the retained Makefile application under
 `components/legacy-project-wrapper/implementation/`. That application remains
 source authority until independently qualified replacements are accepted. Adoption
-does not implement the Go rewrite, fix the seven findings, or migrate stored secrets.
+does not transfer authority to the Go rewrite or migrate stored secrets. The Go
+candidate is implemented under `generated/trove/source`; embedded OpenPGP builds and
+the full macOS native/GPG suites pass. Five candidate archives are built; source
+admission, independent acceptance, regeneration and other target runtimes remain open.
 
 The [active work queue](docs/roadmap/active-work.md) owns execution. The
 [security remediation plan](docs/roadmap/security-remediation.md) owns the agreed

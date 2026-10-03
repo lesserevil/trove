@@ -142,95 +142,9 @@ _decrypt-key:
 # Smoke Test: full round-trip encrypt → decrypt
 # ---------------------------------------------------------------------------
 
-## test-crypto: Run full encrypt/decrypt round-trip smoke test
+## test-crypto: Run an isolated text/binary crypto smoke test
 test-crypto:
-	@echo "=== Trove Crypto Smoke Test ==="
-	@echo ""
-	@# --- Setup: isolated test GPG keypair ---
-	@TEST_GNUPGHOME=$$(mktemp -d); \
-	TEST_TMPDIR=$$(mktemp -d); \
-	_cleanup() { \
-	  rm -rf "$$TEST_GNUPGHOME" "$$TEST_TMPDIR"; \
-	  rm -rf "$(GNUPGHOME)" "$(USERS_DIR)" "$(SECRETS_DIR)"; \
-	  mkdir -p "$(GNUPGHOME)" "$(USERS_DIR)" "$(SECRETS_DIR)"; \
-	  chmod 700 "$(GNUPGHOME)"; \
-	}; \
-	trap _cleanup EXIT; \
-	chmod 700 "$$TEST_GNUPGHOME"; \
-	\
-	echo "[1/8] Generating test GPG keypair..."; \
-	gpg --batch --yes --homedir "$$TEST_GNUPGHOME" --pinentry-mode loopback --passphrase "" \
-	  --quick-generate-key "trove-test@test.local" default default never 2>/dev/null; \
-	\
-	echo "[2/8] Exporting test public key..."; \
-	gpg --batch --yes --homedir "$$TEST_GNUPGHOME" --armor \
-	  --export "trove-test@test.local" > "$(USERS_DIR)/testuser.pub"; \
-	\
-	echo "[3/8] Importing test public key into repo keyring..."; \
-	gpg --batch --yes --homedir "$(GNUPGHOME)" --import "$(USERS_DIR)/testuser.pub" 2>/dev/null; \
-	\
-	echo "[4/8] Generating AES key and IV..."; \
-	KEY_HEX=$$(openssl rand -hex 32); \
-	IV_HEX=$$(openssl rand -hex 16); \
-	\
-	echo "--- Text Round-Trip Test ---"; \
-	echo "[5/8] Encrypting text content..."; \
-	echo "test secret content 12345" > "$$TEST_TMPDIR/plaintext.txt"; \
-	echo "$$IV_HEX" > "$(SECRETS_DIR)/secret.enc"; \
-	openssl enc -aes-256-cbc -nosalt -K "$$KEY_HEX" -iv "$$IV_HEX" \
-	  -in "$$TEST_TMPDIR/plaintext.txt" >> "$(SECRETS_DIR)/secret.enc"; \
-	\
-	echo "[6/8] Encrypting key for test user..."; \
-	echo "$$KEY_HEX" | gpg --batch --yes --trust-model always \
-	  --homedir "$(GNUPGHOME)" \
-	  --recipient-file "$(USERS_DIR)/testuser.pub" \
-	  --encrypt --armor \
-	  --output "$(SECRETS_DIR)/testuser.key.enc"; \
-	\
-	echo "[7/8] Decrypting key and content (text)..."; \
-	RECOVERED_KEY=$$(gpg --batch --yes --quiet --homedir "$$TEST_GNUPGHOME" \
-	  --pinentry-mode loopback --passphrase "" \
-	  --decrypt "$(SECRETS_DIR)/testuser.key.enc"); \
-	RECOVERED_IV=$$(head -1 "$(SECRETS_DIR)/secret.enc"); \
-	RECOVERED_TEXT=$$(tail -n +2 "$(SECRETS_DIR)/secret.enc" | \
-	  openssl enc -aes-256-cbc -d -nosalt -K "$$RECOVERED_KEY" -iv "$$RECOVERED_IV"); \
-	ORIGINAL_TEXT=$$(cat "$$TEST_TMPDIR/plaintext.txt"); \
-	if [ "$$RECOVERED_TEXT" = "$$ORIGINAL_TEXT" ]; then \
-	  echo "  ✓ PASS: Text round-trip matches"; \
-	else \
-	  echo "  ✗ FAIL: Text round-trip mismatch" >&2; \
-	  echo "  Expected: $$ORIGINAL_TEXT" >&2; \
-	  echo "  Got:      $$RECOVERED_TEXT" >&2; \
-	  exit 1; \
-	fi; \
-	\
-	echo ""; \
-	echo "--- Binary Round-Trip Test ---"; \
-	echo "[8/8] Testing 10KB binary round-trip..."; \
-	dd if=/dev/urandom of="$$TEST_TMPDIR/binary.dat" bs=1024 count=10 2>/dev/null; \
-	ORIG_SHA=$$(shasum -a 256 "$$TEST_TMPDIR/binary.dat" | awk '{print $$1}'); \
-	BIN_KEY=$$(openssl rand -hex 32); \
-	BIN_IV=$$(openssl rand -hex 16); \
-	echo "$$BIN_IV" > "$(SECRETS_DIR)/binary.enc"; \
-	openssl enc -aes-256-cbc -nosalt -K "$$BIN_KEY" -iv "$$BIN_IV" \
-	  -in "$$TEST_TMPDIR/binary.dat" >> "$(SECRETS_DIR)/binary.enc"; \
-	DEC_IV=$$(head -1 "$(SECRETS_DIR)/binary.enc"); \
-	tail -n +2 "$(SECRETS_DIR)/binary.enc" | \
-	  openssl enc -aes-256-cbc -d -nosalt -K "$$BIN_KEY" -iv "$$DEC_IV" \
-	  > "$$TEST_TMPDIR/binary_recovered.dat"; \
-	RECV_SHA=$$(shasum -a 256 "$$TEST_TMPDIR/binary_recovered.dat" | awk '{print $$1}'); \
-	if [ "$$ORIG_SHA" = "$$RECV_SHA" ]; then \
-	  echo "  ✓ PASS: Binary round-trip SHA-256 matches"; \
-	  echo "  SHA-256: $$ORIG_SHA"; \
-	else \
-	  echo "  ✗ FAIL: Binary round-trip SHA-256 mismatch" >&2; \
-	  echo "  Original: $$ORIG_SHA" >&2; \
-	  echo "  Recovered: $$RECV_SHA" >&2; \
-	  exit 1; \
-	fi; \
-	\
-	echo ""; \
-	echo "=== All crypto smoke tests PASSED ==="
+	@bash tests/smoke_crypto.sh
 
 # ---------------------------------------------------------------------------
 # Core Operations

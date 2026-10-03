@@ -82,26 +82,120 @@ release-visible outcome to `CHANGELOG.md`; Git preserves prior queue states.
   qualify generated replacements. Make remains a contributor tool. Current retained
   behavior is evidence, including known defects that must change deliberately.
 - **Depends on:** ONBOARD-001
-- **Next action:** Inventory the retained boundaries and specify an isolated replacement
-  for the destructive `test-crypto` harness before executing it.
+- **Next action (in progress):** Implement the native Go rewrite, as explicitly
+  requested by the user. The candidate is written in `generated/trove/source`.
+  Module access is restored and `go mod tidy` and the full native suite pass.
+  GPG interoperability, the patched full native suite and all five candidate
+  archives pass their local gates. Complete Literate AI source admission and
+  independent/regenerative acceptance, then qualify the target runtimes. Do not transfer authority before those gates.
+- **Containment progress:** The [boundary inventory](../architecture/retained-boundaries.md)
+  classifies every retained surface. `test-crypto` now uses one private allocation
+  under the [smoke contract](../architecture/smoke-test-contract.md), with no caller
+  store/keyring cleanup. Independent failure, signal and allocation checks are added
+  as the 26th integration case.
+- **Retained verification:** With unrestricted execution, all 26 cases pass, including
+  successful synthetic crypto and all smoke cleanup failures/signals. Literate AI
+  readmitted the retained harness and published a current 26-case receipt. This is
+  retained parity evidence, not native acceptance or authority transfer.
 - **Implementation:**
   - [ ] Isolate smoke-test setup and cleanup (finding 6) and classify retained boundaries.
+    The implementation, inventory and current 26-case harness qualification
+    pass. Windows and native interruption checks remain later finding-6 acceptance.
   - [ ] Author CLI, store, identity, format, migration, and acceptance contracts;
     select project-specific Go/module and binary-archive Flavors.
-  - [ ] Prove embedded OpenPGP compatibility and a `CGO_ENABLED=0` binary.
+    Authored `components/trove/component.md`, project-owned `go-trove` and
+    `build-trove` Flavors,
+    conversion skill and five-target matrix. `litai lock` records host resolution.
+    Full independent acceptance and release qualification remain open.
+  - [x] Prove embedded OpenPGP compatibility and a `CGO_ENABLED=0` binary.
+    Synthetic GPG RSA3072 and Curve25519 imports and envelope round trips pass;
+    all five actual binaries build with CGO disabled.
   - [ ] Implement literal CLI input and safe filesystem operations (findings 2 and 4).
   - [ ] Implement external personal identities, public-only registration, and protected
     private exports (findings 7, 1, and 5).
   - [ ] Add authenticated v2 content and explicit recoverable legacy migration (finding 3).
-  - [ ] Build and package Linux amd64/arm64, Windows amd64/arm64, and macOS arm64
-    binaries with one checksums manifest; update installation and recovery guidance.
+  - [x] Build and package Linux amd64/arm64, Windows amd64/arm64, and macOS arm64
+    candidate binaries with one checksums manifest; update installation and recovery guidance.
+    `_build/releases-native-final` contains the five archives and SHA256SUMS.
+    Checksums, exact archive contents, architecture, Go build metadata and Go/runtime
+    dependency licenses were verified. These are candidate archives, not a release.
   - [ ] Qualify replacements before retiring operational Make recipes or retained source.
 - **Evidence:**
+  - [x] The safety regression fails against the pre-fix Makefile because it removes
+    disposable caller sentinels. The corrected runner passes focused GPG/OpenSSL
+    failures, HUP/INT/TERM and failed allocation, preserving sentinels and expected
+    exit statuses. Shell syntax validation passes. The full success case now passes with the retained 26-case suite.
   - [ ] Seven security regressions and all 25 existing behavior cases pass through the CLI.
-  - [ ] Migration, tampering, cleanup interruption, and separate-identity tests pass
-    using synthetic keys and stores, with no change to real secrets.
+  - [x] On macOS arm64, migration, tampering, retained cleanup interruption, and
+    separate-identity tests pass using synthetic keys and stores, with no change to
+    real secrets. Other platform execution remains a separate gate below.
   - [ ] All five artifacts execute on their target OS/architecture without external
     runtimes or crypto commands; platform permissions and containment checks pass.
   - [ ] GPG interoperability, dependency review, independent acceptance, and
     regenerative qualification meet every completion criterion in the detailed plan.
   - [ ] Current project verification and release evidence support authority transfer.
+
+#### Native candidate evidence
+
+- `generated/trove/source` contains the Go module, direct CLI, Proton adapter,
+  external protected identities, held-root filesystem layer, HKDF/AES-GCM format,
+  explicit CBC migration with encrypted backup, contributor Make rules and Go
+  archive/checksum helper. It is an **unadmitted, disposable draft**, excluded by
+  the existing generated-source Git policy; the original client is not retired.
+- Native standard-library suites for CLI parsing/setup, formats, filesystem
+  confinement and archive contents pass on macOS arm64. Tests include every-byte
+  tampering, binary round trips, cross-name substitution, strict padding, exclusive
+  writes/locks, protected permissions, symlink replacement races and exact ZIP/tar
+  contents. `_build/native-core-tests.jsonl` is diagnostic output, not a receipt.
+  The root `make test-core` target passes as well. A five-second format fuzz run
+  completed 679,550 executions without a crash or failing case.
+- The filesystem test executable cross-compiles with CGO_ENABLED=0 for all five
+  targets. Only the macOS arm64 suite executes here; Windows DACL tests are compiled
+  but not executed. These are filesystem test artifacts, not Trove release binaries.
+- Real-binary tests cover the retained behavior classes plus security and migration
+  cases with separate identities and an empty runtime PATH. After network access
+  was enabled, `go mod tidy` downloaded the pinned Proton modules and recorded real
+  checksums. `CGO_ENABLED=0 go test -count=1 ./...` passes on macOS arm64, including
+  the real-binary suite (38 seconds). GPG interoperability and other target runtimes
+  remain separate gates.
+- Security review of the downloaded graph found reachable CIRCL and Go standard-library
+  advisories. Pins now require Go 1.26.8, CIRCL 1.6.3, x/crypto 0.56.0, x/sys 0.47.0
+  and x/term 0.45.0 alongside the original Proton pins. `govulncheck` 1.8.0 against
+  the 2026-10-01 database reports zero reachable traces after patching. The single
+  module-level advisory GO-2026-5932 concerns deprecated x/crypto/openpgp, absent
+  from `_build/native-linked-packages.txt`; the maintained Proton fork is linked.
+  `go mod verify` and `go vet ./...` pass.
+- `CGO_ENABLED=0 go test -tags interoperability -count=1 ./...` passes with Go 1.26.8.
+  Public packet tests reject hidden private subkeys in binary and public armor,
+  multiple primary keys and trailing material. Synthetic GPG tests cover RSA3072
+  and Curve25519 identity import plus envelope encryption/decryption in both directions.
+  The exact packaged macOS executable also passes the complete actual-CLI suite
+  via `TROVE_TEST_BINARY`, with an empty runtime PATH.
+- All five actual candidate executables are built and packaged under
+  `_build/releases-native-final`. Linux files are static ELF executables; Windows
+  files are PE executables of the correct architecture; macOS is arm64 Mach-O.
+  The patched filesystem test suites cross-compile for all five. Linux and Windows
+  runtime/ACL/reparse qualification awaits suitable runners; The existing Colima VM could not start: its disk is already attached to an
+  instance despite reporting stopped. No disks/locks were cleared, and no Linux
+  runtime evidence is inferred. GitLab has no Trove CI configuration or enabled
+  project runners. The user accepted the macOS testing for this commit and deferred
+  CI work; other target runtime qualification remains open.
+- `litai verify` now passes authority, locks and the current retained 26-test receipt.
+  Unconfigured source-intelligence and HTML gates remain skipped. Native admission
+  was retried under `generated/trove-admission-patched`; its first tree was discarded
+  by automatic retry and the run was stopped before changing the checksum inputs.
+  The isolated generator cannot download modules; the Go Flavor now supplies actual
+  verified go.sum metadata for immutable source verification. The new diagnostic run under `generated/trove-admission-checksums` failed with
+  `coding_cli.empty_generation` and produced no accepted source.
+  `_build/native-admission-debug.log` records the actual failure. Diagnose the
+  coding-CLI handoff and complete genuine admission before claiming admitted source.
+- `litai generate ... --admit --source-test-command '["go","test","-count=1","./..."]'`
+  was attempted after locking/reviewing authority and failed with
+  `coding_cli.generation_failed`. No source-cache membership or passing project
+  receipt was created. `litai project validate` passes; the new current receipt
+  qualifies retained parity only, and remains distinct from the rewrite gates.
+- The user authorized committing and pushing this work based on the macOS testing.
+  `generated/trove/source` is preserved as a checked-in derived candidate, distinct
+  from admitted source-cache membership. This does not close admission or release gates.
+- Resume from the [native client guide](../user/native-client.md). Restore the
+  checked-in candidate from Git if `litai really-clean` removes the generated tree.

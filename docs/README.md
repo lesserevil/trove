@@ -8,6 +8,10 @@ for the agreed behavior and five-platform binary release matrix.
 
 Start with [getting started](user/getting-started.md) for installation and usage.
 See [active work](roadmap/active-work.md) for current development status.
+The [native client candidate](user/native-client.md) describes the new Go CLI,
+build commands, migration and current qualification limits.
+The [retained boundary inventory](architecture/retained-boundaries.md) maps the
+existing application to its future Components, Flavors, assets and contributor tests.
 
 ## Development
 

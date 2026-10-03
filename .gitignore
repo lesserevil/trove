@@ -5,6 +5,10 @@
 # the ordered specification set.
 generated/*
 !generated/committed-source-cache/
+# Preserve the reviewed native candidate without claiming source-cache admission.
+!generated/trove/
+generated/trove/*
+!generated/trove/source/
 .litai-cache-locks/
 .litai-locks/
 /.literate/*.lock

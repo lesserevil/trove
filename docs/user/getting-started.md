@@ -26,8 +26,10 @@ The command prints the available Make targets. Refer to
 `components/legacy-project-wrapper/implementation/README.md`
 for the existing interface and store layout; its security claims are qualified by
 [the reviewed findings](../roadmap/security-remediation.md#scope-and-priorities).
-The vulnerable `test-crypto` cleanup is pending replacement; use the isolated
-integration suite for adoption checks.
+The containment change replaces `test-crypto` cleanup with a private allocation;
+see its [isolation contract](../architecture/smoke-test-contract.md). Current full
+qualification now passes all 26 cases with fresh retained evidence;
+the [active queue](../roadmap/active-work.md#adopt-002) records that evidence limit.
 
 ## Planned binary installation
 
