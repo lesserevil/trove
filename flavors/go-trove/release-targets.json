@@ -1,0 +1,7 @@
+[
+  {"os":"linux", "arch":"amd64", "label":"linux_x86_64", "archive":"tar.gz"},
+  {"os":"linux", "arch":"arm64", "label":"linux_aarch64", "archive":"tar.gz"},
+  {"os":"windows", "arch":"amd64", "label":"windows_x86_64", "archive":"zip"},
+  {"os":"windows", "arch":"arm64", "label":"windows_aarch64", "archive":"zip"},
+  {"os":"darwin", "arch":"arm64", "label":"macos_aarch64", "archive":"tar.gz"}
+]

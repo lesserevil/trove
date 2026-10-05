@@ -1,21 +1,46 @@
-# Isolated GPG keyring — contains only public keys but should not be committed
-# to a shared upstream template; each fork maintains its own keyring
+# Literate AI local derivation caches are disposable and must not be committed.
+# The project-relative source-cache target is the deliberate exception: a repository
+# may check generated source in there for efficiency. A committed entry can never go
+# stale, because a cache hit requires an exact generation-key match and that key binds
+# the ordered specification set.
+generated/*
+!generated/committed-source-cache/
+# Preserve the reviewed native candidate without claiming source-cache admission.
+!generated/trove/
+generated/trove/*
+!generated/trove/source/
+.litai-cache-locks/
+.litai-locks/
+/.literate/*.lock
+.component*.write.lock
+
+# Per-user or session worker assignments. Keep the checked-in example synthetic.
+/literate.test.json
+/literate.workers.json
+/literate.worker-observations.json
+
+# Common Python development output.
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+_build/
+dist/
+
+# pytest-testmon maps are local skip evidence, never Git authority.
+.testmondata
+.testmondata-journal
+.testmondata.identity.json
+
+# Preserve the GitHub project guards for local keyrings and plaintext exports.
 .gnupg/
-
-# Exported GPG secret keys — delete after transfer, never commit
 *.secret.key
-
-# Decrypted plaintext — never commit
 *.dec
 *.plain
 *.tmp
 tmp/
-
-# Editor backup/swap files
 *.swp
 *.swo
 *~
-
-# OS metadata
 .DS_Store
 Thumbs.db

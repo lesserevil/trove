@@ -1,0 +1,128 @@
+name: CI
+on:
+  push:
+    branches: [main]
+    paths-ignore: ['docs/roadmap/**', 'CHANGELOG.md']
+  pull_request:
+    paths-ignore: ['docs/roadmap/**', 'CHANGELOG.md']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+env:
+  CGO_ENABLED: '0'
+  GOTOOLCHAIN: go1.26.8
+jobs:
+  package:
+    name: Package five targets
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: generated/trove/source
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        with:
+          go-version-file: generated/trove/source/go.mod
+          cache: false
+      - name: Verify modules and static analysis
+        run: |
+          go mod download
+          go mod verify
+          go vet -mod=readonly ./...
+      - name: Build archives and checksums
+        run: |
+          mkdir -p ../../../_build
+          go run -mod=readonly ./tools/release --version ci-${{ github.sha }}
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: candidate-packages
+          path: _build/releases/*
+          if-no-files-found: error
+          retention-days: 7
+  native:
+    name: Test ${{ matrix.os }}/${{ matrix.arch }}
+    needs: package
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            os: linux
+            arch: amd64
+            label: linux_x86_64
+          - runner: ubuntu-24.04-arm
+            os: linux
+            arch: arm64
+            label: linux_aarch64
+          - runner: windows-2025
+            os: windows
+            arch: amd64
+            label: windows_x86_64
+          - runner: windows-11-arm
+            os: windows
+            arch: arm64
+            label: windows_aarch64
+          - runner: macos-15
+            os: darwin
+            arch: arm64
+            label: macos_aarch64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: generated/trove/source
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        with:
+          go-version-file: generated/trove/source/go.mod
+          cache: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: candidate-packages
+          path: _build/releases
+      - name: Verify native runner and modules
+        shell: bash
+        run: |
+          test "$(go env GOOS)" = '${{ matrix.os }}'
+          test "$(go env GOARCH)" = '${{ matrix.arch }}'
+          go mod download
+          go mod verify
+      - name: Run native suite
+        run: go test -mod=readonly -count=1 ./...
+      - name: Validate exact packaged executable
+        shell: bash
+        env:
+          TROVE_TARGET_LABEL: ${{ matrix.label }}
+        run: python ../../../.github/scripts/validate-package.py
+      - name: Synthetic GPG interoperability
+        if: matrix.os == 'linux' && matrix.arch == 'amd64'
+        run: go test -mod=readonly -tags interoperability -count=1 ./internal/pgp
+  windows-filesystem:
+    name: Windows filesystem diagnostics (${{ matrix.runner }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [windows-2025, windows-11-arm]
+    defaults:
+      run:
+        working-directory: generated/trove/source
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16
+        with:
+          go-version-file: generated/trove/source/go.mod
+          cache: false
+      - run: go test -mod=readonly -count=1 -v ./internal/safefs ./internal/app
