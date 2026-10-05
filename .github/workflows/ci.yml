@@ -104,3 +104,23 @@ jobs:
       - name: Synthetic GPG interoperability
         if: matrix.os == 'linux' && matrix.arch == 'amd64'
         run: go test -mod=readonly -tags interoperability -count=1 ./internal/pgp
+  windows-filesystem:
+    name: Windows filesystem diagnostics (${{ matrix.runner }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [windows-2025, windows-11-arm]
+    defaults:
+      run:
+        working-directory: generated/trove/source
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16
+        with:
+          go-version-file: generated/trove/source/go.mod
+          cache: false
+      - run: go test -mod=readonly -count=1 -v ./internal/safefs ./internal/app

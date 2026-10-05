@@ -5,6 +5,7 @@ package safefs
 import (
 	"golang.org/x/sys/windows"
 	"os"
+	"path/filepath"
 	"testing"
 )
 
@@ -40,5 +41,70 @@ func TestWindowsPrivateDACLAndBroadFileRejection(t *testing.T) {
 	}
 	if _, err = r.ReadPrivate("broad", 100); err == nil {
 		t.Fatal("Everyone DACL accepted for private input")
+	}
+}
+
+// Replacing a held object's name must not redirect its permission changes.
+func TestWindowsProtectionUsesHeldObject(t *testing.T) {
+	for _, directory := range []bool{false, true} {
+		name := "file"
+		if directory {
+			name = "directory"
+		}
+		t.Run(name, func(t *testing.T) {
+			r, dir := fixture(t)
+			create := func() {
+				t.Helper()
+				var err error
+				if directory {
+					err = r.Mkdir("original")
+				} else {
+					err = r.Write("original", []byte("synthetic"), false)
+				}
+				if err != nil {
+					t.Fatal(err)
+				}
+			}
+			create()
+			f, err := r.R.Open("original")
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer f.Close()
+			if err := r.R.Rename("original", "moved"); err != nil {
+				t.Fatal(err)
+			}
+			create()
+			replacement := filepath.Join(dir, "original")
+			sd, err := windows.SecurityDescriptorFromString("D:P(A;;FA;;;WD)")
+			if err != nil {
+				t.Fatal(err)
+			}
+			acl, _, err := sd.DACL()
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := windows.SetNamedSecurityInfo(replacement, windows.SE_FILE_OBJECT,
+				windows.DACL_SECURITY_INFORMATION|windows.PROTECTED_DACL_SECURITY_INFORMATION, nil, nil, acl, nil); err != nil {
+				t.Fatal(err)
+			}
+			before, err := windows.GetNamedSecurityInfo(replacement, windows.SE_FILE_OBJECT, windows.DACL_SECURITY_INFORMATION)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := protect(f); err != nil {
+				t.Fatal(err)
+			}
+			if err := checkPrivate(f); err != nil {
+				t.Fatalf("held object not private: %v", err)
+			}
+			after, err := windows.GetNamedSecurityInfo(replacement, windows.SE_FILE_OBJECT, windows.DACL_SECURITY_INFORMATION)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if before.String() != after.String() {
+				t.Fatal("protection changed the replacement object's DACL")
+			}
+		})
 	}
 }
