@@ -200,7 +200,7 @@ release-visible outcome to `CHANGELOG.md`; Git preserves prior queue states.
 - Resume from the [native client guide](../user/native-client.md). Restore the
   checked-in candidate from Git if `litai really-clean` removes the generated tree.
 
-### [ ] HOST-001 — Integrate with the public GitHub project and validate five native targets
+### [x] HOST-001 — Integrate with the public GitHub project and validate five native targets
 
 - **Priority:** P1
 - **Owner:** project hosting / GitHub Actions
@@ -210,10 +210,10 @@ release-visible outcome to `CHANGELOG.md`; Git preserves prior queue states.
 - **Implementation:**
   - [x] Push an integration branch containing both histories; keep existing GitHub main unchanged.
   - [x] Add five-platform native tests and packaged executable validation.
-  - [ ] Open a GitHub PR and inspect workflow results.
+  - [x] Open a GitHub PR and inspect workflow results.
 - **Evidence:**
   - [x] GitHub destination is public as explicitly approved and the integration commit matches local Git.
-  - [ ] Native and packaged CLI suites pass on all five hosted targets, or failures are recorded explicitly.
+  - [x] Native and packaged CLI suites pass on all five hosted targets, or failures are recorded explicitly.
 
 - **Integration boundary:** GitHub main has an independent Make/CBC+HMAC implementation.
   Its Makefile, tests, README and agent skill are preserved under
@@ -226,8 +226,18 @@ release-visible outcome to `CHANGELOG.md`; Git preserves prior queue states.
 - **Hosting evidence:** `aa54521` is pushed to the GitHub integration branch and
   contains both histories. GitHub main remains `f62f07b`; GitHub is now `origin`, and
   the original remote is retained as `gitlab`. Literate AI tracker inspection selects GitHub.
-- **Next action (in progress):** Inspect the [five-target Actions run](https://github.com/lesserevil/trove/actions/runs/37358260290)
-  and record each platform result before claiming runtime qualification.
+- **Hosting outcome:** [PR #8](https://github.com/lesserevil/trove/pull/8) is open
+  as a draft. The integration branch is pushed; GitHub main is unchanged.
 - **Initial CI correction:** The first packaging job failed because a fresh checkout
   has no `_build` parent. The workflow now creates that disposable parent before
   invoking the packager; no runtime qualification is inferred from the failed run.
+- **Hosted runtime evidence:** [Run 37358454750](https://github.com/lesserevil/trove/actions/runs/37358454750)
+  tested `f873a60`. Packaging and native plus exact packaged CLI tests passed on
+  Linux amd64, Linux arm64 and macOS arm64. Synthetic GPG interoperability also
+  passed on Linux amd64. Both Windows architectures acquired hosted runners but
+  failed the native suite during private-directory protection with `Access is denied`;
+  their packaged CLI gates were skipped, so Windows is not qualified.
+- **Rewrite follow-up (ADOPT-002):** Diagnose Windows held-handle ACL protection
+  (`internal/safefs/windows.go`, `TestWindowsPrivateDACLAndBroadFileRejection`)
+  on both hosted architectures, then rerun the native and packaged suites. Preserve
+  owner/System-only permissions; do not bypass the failing protection gate.

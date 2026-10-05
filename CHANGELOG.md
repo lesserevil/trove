@@ -4,6 +4,8 @@
 
 - GitHub integration: preserve both Git histories and the historical GitHub Make
   client; add five-platform native and exact packaged-executable Actions checks.
+  Hosted Linux amd64/arm64 and macOS arm64 native and packaged CLI tests pass;
+  both Windows suites expose a private-directory permission failure.
   GitHub CBC/HMAC store migration remains unqualified.
 
 - Trove native candidate: added the direct Go CLI, embedded OpenPGP adapter,
