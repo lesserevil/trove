@@ -82,12 +82,12 @@ release-visible outcome to `CHANGELOG.md`; Git preserves prior queue states.
   qualify generated replacements. Make remains a contributor tool. Current retained
   behavior is evidence, including known defects that must change deliberately.
 - **Depends on:** ONBOARD-001
-- **Next action (in progress):** Implement the native Go rewrite, as explicitly
-  requested by the user. The candidate is written in `generated/trove/source`.
-  Module access is restored and `go mod tidy` and the full native suite pass.
-  GPG interoperability, the patched full native suite and all five candidate
-  archives pass their local gates. Complete Literate AI source admission and
-  independent/regenerative acceptance, then qualify the target runtimes. Do not transfer authority before those gates.
+- **Next action:** Complete genuine Literate AI source admission and independent
+  regenerative acceptance. The checked-in native candidate now passes native and
+  exact packaged CLI validation on all five target runtimes in
+  [run 37366823816](https://github.com/lesserevil/trove/actions/runs/37366823816).
+  GitHub CBC+HMAC migration requires separate synthetic acceptance. Do not transfer
+  source authority or retire the retained implementation before the remaining gates.
 - **Containment progress:** The [boundary inventory](../architecture/retained-boundaries.md)
   classifies every retained surface. `test-crypto` now uses one private allocation
   under the [smoke contract](../architecture/smoke-test-contract.md), with no caller
@@ -129,8 +129,10 @@ release-visible outcome to `CHANGELOG.md`; Git preserves prior queue states.
   - [x] On macOS arm64, migration, tampering, retained cleanup interruption, and
     separate-identity tests pass using synthetic keys and stores, with no change to
     real secrets. Other platform execution remains a separate gate below.
-  - [ ] All five artifacts execute on their target OS/architecture without external
+  - [x] All five artifacts execute on their target OS/architecture without external
     runtimes or crypto commands; platform permissions and containment checks pass.
+    Hosted native and exact packaged CLI suites pass on Linux amd64/arm64,
+    Windows amd64/arm64 and macOS arm64 for `658ba80` in run 37366823816.
   - [ ] GPG interoperability, dependency review, independent acceptance, and
     regenerative qualification meet every completion criterion in the detailed plan.
   - [ ] Current project verification and release evidence support authority transfer.
@@ -222,12 +224,13 @@ release-visible outcome to `CHANGELOG.md`; Git preserves prior queue states.
   only. GitHub CBC+HMAC compatibility requires a separate synthetic fixture and
   acceptance before migrating any store in that format.
 
-- **GitHub PR:** [#8](https://github.com/lesserevil/trove/pull/8), draft.
+- **GitHub PR:** [#8](https://github.com/lesserevil/trove/pull/8), merged.
 - **Hosting evidence:** `aa54521` is pushed to the GitHub integration branch and
-  contains both histories. GitHub main remains `f62f07b`; GitHub is now `origin`, and
+  contains both histories. At integration, GitHub main remained `f62f07b`; GitHub is now `origin`, and
   the original remote is retained as `gitlab`. Literate AI tracker inspection selects GitHub.
-- **Hosting outcome:** [PR #8](https://github.com/lesserevil/trove/pull/8) is open
-  as a draft. The integration branch is pushed; GitHub main is unchanged.
+- **Hosting outcome:** [PR #8](https://github.com/lesserevil/trove/pull/8) merged
+  to GitHub main as `0342083b835e188353195ead86d664d2e5340aef`.
+  Both histories remain reachable and local main tracks origin/main.
 - **Initial CI correction:** The first packaging job failed because a fresh checkout
   has no `_build` parent. The workflow now creates that disposable parent before
   invoking the packager; no runtime qualification is inferred from the failed run.
@@ -236,35 +239,48 @@ release-visible outcome to `CHANGELOG.md`; Git preserves prior queue states.
   Linux amd64, Linux arm64 and macOS arm64. Synthetic GPG interoperability also
   passed on Linux amd64. Both Windows architectures acquired hosted runners but
   failed the native suite during private-directory protection with `Access is denied`;
-  their packaged CLI gates were skipped, so Windows is not qualified.
-- **Rewrite follow-up (ADOPT-002):** Diagnose Windows held-handle ACL protection
-  (`internal/safefs/windows.go`, `TestWindowsPrivateDACLAndBroadFileRejection`)
-  on both hosted architectures, then rerun the native and packaged suites. Preserve
-  owner/System-only permissions; do not bypass the failing protection gate.
+  their packaged CLI gates were skipped, so that initial run did not qualify Windows.
+- **Final hosted qualification:** WIN-001 fixes the Windows protection failure.
+  [Run 37366823816](https://github.com/lesserevil/trove/actions/runs/37366823816)
+  passes packaging, all five native and exact packaged CLI suites, both focused
+  Windows filesystem suites and Linux amd64 GPG interoperability on `658ba80`.
+  Initial runner-allocation cancellations were retried on the same commit.
+  Earlier cross-compilation-only and failed Windows observations above are historical.
 
-### [ ] WIN-001 — Fix Windows protection and land the native rewrite PR
+<a id="win-001"></a>
+### [x] WIN-001 — Fix Windows protection and land the native rewrite PR
 
 - **Priority:** P0
 - **Owner:** trove filesystem candidate / GitHub PR 8
 - **Direction:** Fix issues in open PRs and merge passing changes to main.
-- **Conclusion:** PR 8 is the only open GitHub PR. Both Windows native suites fail during held-handle DACL protection. Fix the implementation without weakening protection, qualify all five targets, then merge through the configured merge method.
+- **Conclusion:** PR 8 was the only open GitHub PR. Repaired held-object Windows ACL protection without weakening permissions; all five targets pass and the PR is merged through the configured merge-commit method.
 - **Depends on:** none
 - **Implementation:**
   - [x] Repair Windows ACL protection and add focused Windows regressions.
-  - [ ] Run five native and packaged executable gates and address review feedback.
-  - [ ] Merge PR 8 and synchronize local main with GitHub.
+  - [x] Run five native and packaged executable gates and address review feedback.
+  - [x] Merge PR 8 and synchronize local main with GitHub.
 - **Evidence:**
-  - [ ] All five platform jobs pass on the final implementation commit.
-  - [ ] Litai verification passes and GitHub records the merge to main.
+  - [x] All five platform jobs pass on the final implementation commit.
+  - [x] Litai verification passes and GitHub records the merge to main.
 
 - **Windows diagnosis:** Both architectures fail the `ReOpenFile` call used to
   obtain ACL-write access on an `os.Root` directory handle. The repair uses an
   NT handle-relative reopen, verifies object identity before ACL mutation, and
   explicitly assigns current-user ownership plus a protected owner/System DACL.
-  Added renamed-file and renamed-directory replacement tests; target passes remain
-  required. Packaging uses Linux arm64 to avoid the queued amd64 packaging pool.
+  Added renamed-file and renamed-directory replacement tests; both target suites pass. Packaging uses Linux arm64 to avoid the queued amd64 packaging pool.
 
 - **Focused Windows evidence:** [Run 37366154289](https://github.com/lesserevil/trove/actions/runs/37366154289)
   passed the ARM64 filesystem/application checks, including the renamed-object
-  permission regression. All five archives build on Linux arm64. Full native and
-  packaged target suites are still required before merging.
+  permission regression. All five archives build on Linux arm64. The later final
+  run below provides complete native and packaged target qualification.
+
+- **Completion evidence:** [Run 37366823816](https://github.com/lesserevil/trove/actions/runs/37366823816)
+  is green for `658ba80d6ad94b19c5447a16765fba80f0e42df6`, including all five
+  native and exact packaged CLI suites, GPG interoperability and both focused
+  Windows regression suites. The final downloaded macOS archive also passes the
+  local packaged CLI suite. `litai verify` passes authority, locks and the current
+  retained 26-case receipt; unconfigured source-intelligence and HTML gates skip.
+  PR 8 merged as `0342083b835e188353195ead86d664d2e5340aef`; local main was
+  fast-forwarded to that commit. No review comments were outstanding.
+  Source admission, independent regeneration and GitHub CBC+HMAC migration remain
+  open under ADOPT-002; this completion does not claim a release or authority transfer.

@@ -1,6 +1,6 @@
 # Trove security remediation plan
 
-- **Status:** active
+- **Status:** partial
 - **Owning queue item:** [ADOPT-002](active-work.md#adopt-002)
 - **Completion / archival evidence:** pending while ADOPT-002 remains open
 
@@ -8,8 +8,10 @@ This plan addresses the seven findings from the security review of commit `3c684
 
 Status: implementation in progress under ADOPT-002. The selected architecture is
 one self-contained Go executable with embedded OpenPGP support. A native draft is
-written and its core tests pass; dependency downloads, full crypto/CLI acceptance,
-source admission, remaining target runtime qualification and release remain pending. No real keys or secrets are migrated.
+written and its native and exact packaged CLI suites pass on all five target
+runtimes in [run 37366823816](https://github.com/lesserevil/trove/actions/runs/37366823816).
+Source admission, independent regenerative acceptance, historical GitHub CBC+HMAC
+migration qualification and release remain pending. No real keys or secrets are migrated.
 The plan was approved and included in the merged Literate AI adoption branch.
 
 ## Scope and priorities
