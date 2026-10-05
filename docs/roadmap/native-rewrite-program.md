@@ -1,6 +1,6 @@
 # Native rewrite program
 
-- **Status:** active
+- **Status:** partial
 - **Owning queue item:** [ADOPT-002](active-work.md#adopt-002)
 - **Completion / archival evidence:** pending while ADOPT-002 remains open
 
@@ -10,12 +10,14 @@ until each boundary earns transfer under ADR 0002.
 The [security remediation plan](security-remediation.md) supplies the product design,
 seven findings, rollout rules, and five-target release matrix for this same ADOPT-002
 program. This document describes the Literate AI authority-transfer process. The
-retained harness containment change is in progress. The native Go candidate is
-written under `generated/trove/source`, with passing full native and GPG
-interoperability suites on macOS arm64. Actual CGO-free binaries and archives build
-for all five targets, and the packaged macOS binary passes the CLI suite. Source
-admission, other target runtimes and release remain pending; see
-ADOPT-002's native candidate evidence. Generated source remains disposable.
+retained harness containment change has passing 26-case parity evidence. The
+native Go candidate is preserved under `generated/trove/source`. Its full native
+and exact packaged CLI suites pass on all five hosted target runtimes, with
+synthetic GPG interoperability on Linux amd64 and macOS arm64. See
+[WIN-001 completion evidence](active-work.md#win-001)
+and [PR 8](https://github.com/lesserevil/trove/pull/8).
+Source admission, independent regeneration, GitHub CBC+HMAC migration acceptance
+and release remain pending. Generated source remains disposable.
 
 ## Ordered work
 
