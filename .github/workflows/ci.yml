@@ -34,7 +34,9 @@ jobs:
           go mod verify
           go vet -mod=readonly ./...
       - name: Build archives and checksums
-        run: go run -mod=readonly ./tools/release --version ci-${{ github.sha }}
+        run: |
+          mkdir -p ../../../_build
+          go run -mod=readonly ./tools/release --version ci-${{ github.sha }}
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: candidate-packages

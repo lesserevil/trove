@@ -208,11 +208,11 @@ release-visible outcome to `CHANGELOG.md`; Git preserves prior queue states.
 - **Conclusion:** The user selected the existing public lesserevil/trove repository. Preserve GitLab and both Git histories; integrate on a review branch without replacing GitHub main. Add synthetic native validation without claiming source admission or releasing binaries.
 - **Depends on:** ADOPT-002
 - **Implementation:**
-  - [ ] Push an integration branch containing both histories; keep existing GitHub main unchanged.
-  - [ ] Add five-platform native tests and packaged executable validation.
+  - [x] Push an integration branch containing both histories; keep existing GitHub main unchanged.
+  - [x] Add five-platform native tests and packaged executable validation.
   - [ ] Open a GitHub PR and inspect workflow results.
 - **Evidence:**
-  - [ ] GitHub destination is public as explicitly approved and the integration commit matches local Git.
+  - [x] GitHub destination is public as explicitly approved and the integration commit matches local Git.
   - [ ] Native and packaged CLI suites pass on all five hosted targets, or failures are recorded explicitly.
 
 - **Integration boundary:** GitHub main has an independent Make/CBC+HMAC implementation.
@@ -221,3 +221,13 @@ release-visible outcome to `CHANGELOG.md`; Git preserves prior queue states.
   reachable. The current native migration qualifies the retained GitLab CBC format
   only. GitHub CBC+HMAC compatibility requires a separate synthetic fixture and
   acceptance before migrating any store in that format.
+
+- **GitHub PR:** [#8](https://github.com/lesserevil/trove/pull/8), draft.
+- **Hosting evidence:** `aa54521` is pushed to the GitHub integration branch and
+  contains both histories. GitHub main remains `f62f07b`; GitHub is now `origin`, and
+  the original remote is retained as `gitlab`. Literate AI tracker inspection selects GitHub.
+- **Next action (in progress):** Inspect the [five-target Actions run](https://github.com/lesserevil/trove/actions/runs/37358260290)
+  and record each platform result before claiming runtime qualification.
+- **Initial CI correction:** The first packaging job failed because a fresh checkout
+  has no `_build` parent. The workflow now creates that disposable parent before
+  invoking the packager; no runtime qualification is inferred from the failed run.
