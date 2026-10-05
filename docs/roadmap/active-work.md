@@ -256,3 +256,10 @@ release-visible outcome to `CHANGELOG.md`; Git preserves prior queue states.
 - **Evidence:**
   - [ ] All five platform jobs pass on the final implementation commit.
   - [ ] Litai verification passes and GitHub records the merge to main.
+
+- **Windows diagnosis:** Both architectures fail the `ReOpenFile` call used to
+  obtain ACL-write access on an `os.Root` directory handle. The repair uses an
+  NT handle-relative reopen, verifies object identity before ACL mutation, and
+  explicitly assigns current-user ownership plus a protected owner/System DACL.
+  Added renamed-file and renamed-directory replacement tests; target passes remain
+  required. Packaging uses Linux arm64 to avoid the queued amd64 packaging pool.

@@ -12,8 +12,6 @@ import (
 	"unsafe"
 )
 
-var reopenFile = windows.NewLazySystemDLL("kernel32.dll").NewProc("ReOpenFile")
-
 func openRead(r *Root, name string) (*os.File, error) { return r.R.Open(name) }
 
 func checkPrivate(f *os.File) error {
@@ -65,19 +63,57 @@ func forbidden(st fs.FileInfo) bool {
 	return false
 }
 
-func protect(f *os.File) error {
-	// os.Open does not request WRITE_DAC. Reopen the held object rather than
-	// resolving its name again, so a path swap cannot redirect ACL changes.
-	h, _, e := reopenFile.Call(f.Fd(), uintptr(windows.READ_CONTROL|windows.WRITE_DAC),
-		uintptr(windows.FILE_SHARE_READ|windows.FILE_SHARE_WRITE|windows.FILE_SHARE_DELETE),
-		uintptr(windows.FILE_FLAG_BACKUP_SEMANTICS|windows.FILE_FLAG_OPEN_REPARSE_POINT))
-	if windows.Handle(h) == windows.InvalidHandle {
-		if e != nil {
-			return fmt.Errorf("reopen held object for private ACL: %w", e)
-		}
-		return errors.New("ReOpenFile failed")
+// Open the held object itself with permission-management access. An empty NT
+// object name is relative to that handle, so no pathname is resolved again.
+func openForProtection(f *os.File) (windows.Handle, error) {
+	st, err := f.Stat()
+	if err != nil {
+		return windows.InvalidHandle, err
 	}
-	defer windows.CloseHandle(windows.Handle(h))
+	name, err := windows.NewNTUnicodeString("")
+	if err != nil {
+		return windows.InvalidHandle, err
+	}
+	oa := &windows.OBJECT_ATTRIBUTES{RootDirectory: windows.Handle(f.Fd()), ObjectName: name}
+	oa.Length = uint32(unsafe.Sizeof(*oa))
+	access := uint32(windows.READ_CONTROL | windows.WRITE_DAC | windows.WRITE_OWNER | windows.FILE_READ_ATTRIBUTES | windows.SYNCHRONIZE)
+	options := uint32(windows.FILE_OPEN_REPARSE_POINT | windows.FILE_SYNCHRONOUS_IO_NONALERT)
+	if st.IsDir() {
+		options |= windows.FILE_DIRECTORY_FILE
+		access |= windows.FILE_LIST_DIRECTORY
+	} else {
+		options |= windows.FILE_NON_DIRECTORY_FILE
+	}
+	var h windows.Handle
+	if err := windows.NtCreateFile(&h, access, oa, &windows.IO_STATUS_BLOCK{}, nil, 0,
+		windows.FILE_SHARE_READ|windows.FILE_SHARE_WRITE|windows.FILE_SHARE_DELETE,
+		windows.FILE_OPEN, options, 0, 0); err != nil {
+		return windows.InvalidHandle, fmt.Errorf("reopen held object for private ACL: %w", err)
+	}
+	// Verify identity before any permission mutation, including for renamed objects.
+	var before, after windows.ByHandleFileInformation
+	if err := windows.GetFileInformationByHandle(windows.Handle(f.Fd()), &before); err != nil {
+		windows.CloseHandle(h)
+		return windows.InvalidHandle, err
+	}
+	if err := windows.GetFileInformationByHandle(h, &after); err != nil {
+		windows.CloseHandle(h)
+		return windows.InvalidHandle, err
+	}
+	if before.VolumeSerialNumber != after.VolumeSerialNumber || before.FileIndexHigh != after.FileIndexHigh || before.FileIndexLow != after.FileIndexLow {
+		windows.CloseHandle(h)
+		return windows.InvalidHandle, errors.New("private ACL handle changed object")
+	}
+	return h, nil
+}
+
+func protect(f *os.File) error {
+	h, err := openForProtection(f)
+	if err != nil {
+		return err
+	}
+	defer windows.CloseHandle(h)
+
 	u, err := windows.GetCurrentProcessToken().GetTokenUser()
 	if err != nil {
 		return err
@@ -90,6 +126,8 @@ func protect(f *os.File) error {
 	if st.IsDir() {
 		flags = "OICI"
 	}
+	// Set the current user as owner as well: elevated Windows processes can
+	// otherwise create objects owned by the Administrators group.
 	// A protected parent gives newly created children owner/System access from
 	// creation; file protection then makes that restriction explicit and stable.
 	sd, err := windows.SecurityDescriptorFromString("D:P(A;" + flags + ";FA;;;" + u.User.Sid.String() + ")(A;" + flags + ";FA;;;SY)")
@@ -101,7 +139,7 @@ func protect(f *os.File) error {
 		return err
 	}
 	if err := windows.SetSecurityInfo(windows.Handle(h), windows.SE_FILE_OBJECT,
-		windows.DACL_SECURITY_INFORMATION|windows.PROTECTED_DACL_SECURITY_INFORMATION, nil, nil, acl, nil); err != nil {
+		windows.OWNER_SECURITY_INFORMATION|windows.DACL_SECURITY_INFORMATION|windows.PROTECTED_DACL_SECURITY_INFORMATION, u.User.Sid, nil, acl, nil); err != nil {
 		return fmt.Errorf("protect held object DACL: %w", err)
 	}
 	return nil
