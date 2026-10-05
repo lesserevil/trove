@@ -4,6 +4,7 @@ package safefs
 
 import (
 	"errors"
+	"fmt"
 	"golang.org/x/sys/windows"
 	"io/fs"
 	"os"
@@ -72,7 +73,7 @@ func protect(f *os.File) error {
 		uintptr(windows.FILE_FLAG_BACKUP_SEMANTICS|windows.FILE_FLAG_OPEN_REPARSE_POINT))
 	if windows.Handle(h) == windows.InvalidHandle {
 		if e != nil {
-			return e
+			return fmt.Errorf("reopen held object for private ACL: %w", e)
 		}
 		return errors.New("ReOpenFile failed")
 	}
@@ -99,8 +100,11 @@ func protect(f *os.File) error {
 	if err != nil {
 		return err
 	}
-	return windows.SetSecurityInfo(windows.Handle(h), windows.SE_FILE_OBJECT,
-		windows.DACL_SECURITY_INFORMATION|windows.PROTECTED_DACL_SECURITY_INFORMATION, nil, nil, acl, nil)
+	if err := windows.SetSecurityInfo(windows.Handle(h), windows.SE_FILE_OBJECT,
+		windows.DACL_SECURITY_INFORMATION|windows.PROTECTED_DACL_SECURITY_INFORMATION, nil, nil, acl, nil); err != nil {
+		return fmt.Errorf("protect held object DACL: %w", err)
+	}
+	return nil
 }
 
 // Windows rename supplies atomic namespace replacement; directory FlushFileBuffers

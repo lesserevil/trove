@@ -241,3 +241,18 @@ release-visible outcome to `CHANGELOG.md`; Git preserves prior queue states.
   (`internal/safefs/windows.go`, `TestWindowsPrivateDACLAndBroadFileRejection`)
   on both hosted architectures, then rerun the native and packaged suites. Preserve
   owner/System-only permissions; do not bypass the failing protection gate.
+
+### [ ] WIN-001 — Fix Windows protection and land the native rewrite PR
+
+- **Priority:** P0
+- **Owner:** trove filesystem candidate / GitHub PR 8
+- **Direction:** Fix issues in open PRs and merge passing changes to main.
+- **Conclusion:** PR 8 is the only open GitHub PR. Both Windows native suites fail during held-handle DACL protection. Fix the implementation without weakening protection, qualify all five targets, then merge through the configured merge method.
+- **Depends on:** none
+- **Implementation:**
+  - [ ] Repair Windows ACL protection and add focused Windows regressions.
+  - [ ] Run five native and packaged executable gates and address review feedback.
+  - [ ] Merge PR 8 and synchronize local main with GitHub.
+- **Evidence:**
+  - [ ] All five platform jobs pass on the final implementation commit.
+  - [ ] Litai verification passes and GitHub records the merge to main.
