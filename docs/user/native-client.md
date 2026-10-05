@@ -2,7 +2,9 @@
 
 The Go replacement candidate is checked in under `generated/trove/source` as a
 derived source snapshot so contributors can build this branch. It is not yet
-admitted or released: source admission and target runtime qualification remain open.
+admitted or released: source admission and independent regeneration remain open.
+GitHub Actions tests all five native targets and their packaged executables; see
+the [active work queue](../roadmap/active-work.md) for platform results.
 The native suite and synthetic GPG interoperability pass on macOS arm64.
 Store/format tests are separate from full crypto and target qualification. Keep
 using encrypted backups; do not run this candidate on real secrets yet.

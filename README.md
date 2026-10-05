@@ -8,8 +8,9 @@ The planned replacement is one self-contained Go executable with embedded OpenPG
 released for Linux x86_64/aarch64, Windows x86_64/aarch64, and macOS aarch64.
 The [Go candidate](docs/user/native-client.md) now implements the direct CLI and
 store rewrite. The full native suite and synthetic GPG interoperability pass on macOS arm64.
-Candidate archives build for all five targets; source admission and remaining target
-runtime qualification are pending. The retained client has not been retired.
+Candidate archives build for all five targets. GitHub Actions tests each native target
+and its packaged executable; the [roadmap](docs/roadmap/active-work.md) records results.
+Source admission and independent regeneration remain open. The retained client has not been retired.
 
 - [Getting started and current prerequisites](docs/user/getting-started.md)
 - [Project guide](docs/README.md)

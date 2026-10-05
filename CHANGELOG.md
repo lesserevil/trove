@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Trove Windows: replace failing Win32 ACL-handle reopens with verified NT
+  handle-relative opens, normalize current-user ownership and retain protected
+  owner/System permissions. Added file and directory name-replacement regressions.
+  CI avoids duplicate PR runs and checks Windows filesystem protection separately.
+
 - GitHub integration: preserve both Git histories and the historical GitHub Make
   client; add five-platform native and exact packaged-executable Actions checks.
   Hosted Linux amd64/arm64 and macOS arm64 native and packaged CLI tests pass;

@@ -250,7 +250,7 @@ release-visible outcome to `CHANGELOG.md`; Git preserves prior queue states.
 - **Conclusion:** PR 8 is the only open GitHub PR. Both Windows native suites fail during held-handle DACL protection. Fix the implementation without weakening protection, qualify all five targets, then merge through the configured merge method.
 - **Depends on:** none
 - **Implementation:**
-  - [ ] Repair Windows ACL protection and add focused Windows regressions.
+  - [x] Repair Windows ACL protection and add focused Windows regressions.
   - [ ] Run five native and packaged executable gates and address review feedback.
   - [ ] Merge PR 8 and synchronize local main with GitHub.
 - **Evidence:**
@@ -263,3 +263,8 @@ release-visible outcome to `CHANGELOG.md`; Git preserves prior queue states.
   explicitly assigns current-user ownership plus a protected owner/System DACL.
   Added renamed-file and renamed-directory replacement tests; target passes remain
   required. Packaging uses Linux arm64 to avoid the queued amd64 packaging pool.
+
+- **Focused Windows evidence:** [Run 37366154289](https://github.com/lesserevil/trove/actions/runs/37366154289)
+  passed the ARM64 filesystem/application checks, including the renamed-object
+  permission regression. All five archives build on Linux arm64. Full native and
+  packaged target suites are still required before merging.

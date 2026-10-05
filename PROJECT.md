@@ -15,7 +15,8 @@ source authority until independently qualified replacements are accepted. Adopti
 does not transfer authority to the Go rewrite or migrate stored secrets. The Go
 candidate is implemented under `generated/trove/source`; embedded OpenPGP builds and
 the full macOS native/GPG suites pass. Five candidate archives are built; source
-admission, independent acceptance, regeneration and other target runtimes remain open.
+admission, independent acceptance and regeneration remain open. Five-target native
+and packaged runtime qualification is tracked in the active work queue.
 
 The [active work queue](docs/roadmap/active-work.md) owns execution. The
 [security remediation plan](docs/roadmap/security-remediation.md) owns the agreed
