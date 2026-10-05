@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- GitHub integration: preserve both Git histories and the historical GitHub Make
+  client; add five-platform native and exact packaged-executable Actions checks.
+  GitHub CBC/HMAC store migration remains unqualified.
+
 - Trove native candidate: added the direct Go CLI, embedded OpenPGP adapter,
   protected external identities, contained store operations, authenticated v2
   content, explicit recoverable CBC migration, and five-target archive tooling.

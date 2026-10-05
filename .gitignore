@@ -31,3 +31,16 @@ dist/
 .testmondata
 .testmondata-journal
 .testmondata.identity.json
+
+# Preserve the GitHub project guards for local keyrings and plaintext exports.
+.gnupg/
+*.secret.key
+*.dec
+*.plain
+*.tmp
+tmp/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db

@@ -199,3 +199,25 @@ release-visible outcome to `CHANGELOG.md`; Git preserves prior queue states.
   from admitted source-cache membership. This does not close admission or release gates.
 - Resume from the [native client guide](../user/native-client.md). Restore the
   checked-in candidate from Git if `litai really-clean` removes the generated tree.
+
+### [ ] HOST-001 — Integrate with the public GitHub project and validate five native targets
+
+- **Priority:** P1
+- **Owner:** project hosting / GitHub Actions
+- **Direction:** Move a copy to the lesserevil personal GitHub account and use hosted runners for the five Trove targets.
+- **Conclusion:** The user selected the existing public lesserevil/trove repository. Preserve GitLab and both Git histories; integrate on a review branch without replacing GitHub main. Add synthetic native validation without claiming source admission or releasing binaries.
+- **Depends on:** ADOPT-002
+- **Implementation:**
+  - [ ] Push an integration branch containing both histories; keep existing GitHub main unchanged.
+  - [ ] Add five-platform native tests and packaged executable validation.
+  - [ ] Open a GitHub PR and inspect workflow results.
+- **Evidence:**
+  - [ ] GitHub destination is public as explicitly approved and the integration commit matches local Git.
+  - [ ] Native and packaged CLI suites pass on all five hosted targets, or failures are recorded explicitly.
+
+- **Integration boundary:** GitHub main has an independent Make/CBC+HMAC implementation.
+  Its Makefile, tests, README and agent skill are preserved under
+  `components/legacy-project-wrapper/github-reference/`; both Git histories remain
+  reachable. The current native migration qualifies the retained GitLab CBC format
+  only. GitHub CBC+HMAC compatibility requires a separate synthetic fixture and
+  acceptance before migrating any store in that format.
