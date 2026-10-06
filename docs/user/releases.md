@@ -139,11 +139,12 @@ prepare a new version/tag rather than using asset overwrite or tag force-push.
 
 ## Current readiness
 
-This change installs the release process; it publishes no binaries. The five target
-runtime suites are qualified, but [ADOPT-002](../roadmap/active-work.md#adopt-002)
-still owns native source admission and independent regeneration. Stable native
-publication fails until Litai records qualified conversion authority. Numbered
-candidate prereleases disclose that boundary and can exercise the complete pipeline
-when explicitly authorized. `make release-check-candidate` runs local diagnostic
-gates without claiming stable readiness. Historical GitHub CBC+HMAC migration
-acceptance remains separate from the qualified GitLab CBC migration.
+The release owner selected the tested, checked-in Go implementation for stable
+1.0.0 publication. Every cut still requires exact-revision native tests, packaged
+CLI validation on all five targets and checksum verification of published downloads.
+[ADOPT-002](../roadmap/active-work.md#adopt-002) retains Literate AI source admission
+and independent regeneration as separate follow-up work. Publication does not
+advance conversion metadata or claim specification-authoritative source.
+`make release-check-candidate` remains a local diagnostic; it cannot publish a tag.
+Historical GitHub CBC+HMAC migration acceptance remains separate from the qualified
+GitLab CBC migration.

@@ -24,8 +24,9 @@ build one complete five-target archive set with SHA256SUMS, execute native tests
 and the exact packaged CLI on every target, and publish those same bytes only
 after every gate passes. Retries SHALL verify existing assets and never replace
 published bytes or move a tag. Only publication may receive repository write access.
-Stable native publication requires qualified conversion authority; candidate
-prereleases SHALL disclose the open admission/regeneration gates. The installer
+Native publication SHALL release the tested checked-in Go implementation.
+Literate AI admission and regenerative qualification remain separate follow-up
+work and SHALL NOT block binary publication or be claimed by release metadata. The installer
 remains a single executable; contributor release tools add no runtime dependency.
 
 #### Scenario: Recover a partially uploaded release

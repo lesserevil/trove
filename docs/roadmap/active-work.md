@@ -350,14 +350,20 @@ release-visible outcome to `CHANGELOG.md`; Git preserves prior queue states.
 ### [ ] REL-002 — Publish initial 1.0.0 release
 
 - **Priority:** P1
-- **Owner:** Release policy and ADOPT-002 conversion authority
+- **Owner:** Release policy / checked-in Go implementation
 - **Direction:** Publish a stable 1.0.0 GitHub release for all five supported platforms.
-- **Conclusion:** Complete genuine native admission and independent qualification, land the release process, then cut and verify the immutable release line and tag using exact versioned CI artifacts.
-- **Depends on:** ADOPT-002, REL-001
+- **Conclusion:** The release owner explicitly selected the tested, checked-in Go implementation for 1.0.0. Publish that exact source revision through native CI without claiming Litai source admission or regenerative qualification. Keep authority-transfer work under ADOPT-002.
+- **Depends on:** REL-001
 - **Implementation:**
-  - [ ] Resolve native source admission and independent regeneration without bypassing qualification.
+  - [ ] Separate product publication from Litai authority transfer in the release contract and regression tests.
   - [ ] Land release tooling, prepare release/1.0.x and annotated v1.0.0, and publish through green hosted validation.
 - **Evidence:**
-  - [ ] Qualified conversion authority and current admitted-source evidence.
+  - [ ] Release-owner decision recorded; conversion metadata remains truthful and independent of binary publication.
   - [ ] Green exact-revision native and packaged validation for all five targets.
   - [ ] Remote immutable tag and stable GitHub Release with five archives and SHA256SUMS verified.
+
+- **Landed process:** PR 10 merged as `a2f6952`; all five native and packaged
+  target suites, packaging and both Windows diagnostic jobs pass in
+  [run 37402636392](https://github.com/lesserevil/trove/actions/runs/37402636392).
+- **Release-owner clarification:** Publish the Go implementation as stable 1.0.0.
+  Admission and regeneration are follow-up work, not product publication gates.
