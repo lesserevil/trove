@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 1.0.0 - 2026-10-06
+
 - Ship a self-contained Go executable with embedded OpenPGP for Linux x86_64 and
   aarch64, Windows x86_64 and aarch64, and macOS aarch64. Normal operations need no
   separately installed GPG, Python, Go, Make or shell.
