@@ -347,7 +347,7 @@ release-visible outcome to `CHANGELOG.md`; Git preserves prior queue states.
   helper; Litai still owns stable plan/prepare/check/Git publication, and tag CI owns
   GitHub binary assets. No framework source is patched.
 
-### [ ] REL-002 — Publish initial 1.0.0 release
+### [x] REL-002 — Publish initial 1.0.0 release
 
 - **Priority:** P1
 - **Owner:** Release policy / checked-in Go implementation
@@ -355,12 +355,12 @@ release-visible outcome to `CHANGELOG.md`; Git preserves prior queue states.
 - **Conclusion:** The release owner explicitly selected the tested, checked-in Go implementation for 1.0.0. Publish that exact source revision through native CI without claiming Litai source admission or regenerative qualification. Keep authority-transfer work under ADOPT-002.
 - **Depends on:** REL-001
 - **Implementation:**
-  - [ ] Separate product publication from Litai authority transfer in the release contract and regression tests.
-  - [ ] Land release tooling, prepare release/1.0.x and annotated v1.0.0, and publish through green hosted validation.
+  - [x] Separate product publication from Litai authority transfer in the release contract and regression tests.
+  - [x] Land release tooling, prepare release/1.0.x and annotated v1.0.0, and publish through green hosted validation.
 - **Evidence:**
-  - [ ] Release-owner decision recorded; conversion metadata remains truthful and independent of binary publication.
-  - [ ] Green exact-revision native and packaged validation for all five targets.
-  - [ ] Remote immutable tag and stable GitHub Release with five archives and SHA256SUMS verified.
+  - [x] Release-owner decision recorded; conversion metadata remains truthful and independent of binary publication.
+  - [x] Green exact-revision native and packaged validation for all five targets.
+  - [x] Remote immutable tag and stable GitHub Release with five archives and SHA256SUMS verified.
 
 - **Landed process:** PR 10 merged as `a2f6952`; all five native and packaged
   target suites, packaging and both Windows diagnostic jobs pass in
@@ -372,3 +372,13 @@ release-visible outcome to `CHANGELOG.md`; Git preserves prior queue states.
   its local annotated ref. Preserve remote `v1.0.0` and its original source commit;
   repair orchestration to fetch the exact tag object and explicitly bind all
   build/test jobs to its revision. Add manual recovery for the existing tag.
+
+- **Published:** [stable 1.0.0](https://github.com/lesserevil/trove/releases/tag/v1.0.0),
+  source `9d98fcfc6e03a12cd58544234e648dac62fd33c4` on `release/1.0.x`.
+  [Release run 37421028777](https://github.com/lesserevil/trove/actions/runs/37421028777)
+  passes all five native and exact packaged suites and verifies published downloads.
+  Independent read-back verifies all six assets; the downloaded macOS executable
+  reports `trove 1.0.0 darwin/arm64` with an empty PATH. Manifest SHA256:
+  `1d08c4e0a4bf7917f1b2a2c26cb8bd5a6b3e330936cc3dfddad9e559f338ea5c`.
+  PRs 11 and 12 are merged; the remote annotated tag object is unchanged.
+  Litai admission and regeneration remain open under ADOPT-002.

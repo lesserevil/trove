@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Release CI: restore annotated tag objects after checkout and support recovery
+  of existing immutable tags while binding all jobs to the original source revision.
+
 ## 1.0.0 - 2026-10-06
 
 - Ship a self-contained Go executable with embedded OpenPGP for Linux x86_64 and

@@ -132,6 +132,13 @@ checkout credentials disabled. Publication uses the workflow token, with no cust
 stored credential required.
 
 Retry unsuccessful jobs in the same Release run after fixing a runner outage.
+When orchestration needs repair, dispatch the repaired workflow for the existing
+immutable tag with `gh workflow run release.yml --ref main -f tag=vX.Y.Z`.
+All validation and publication checkouts bind to the verified tagged revision,
+independent of the dispatch branch. The workflow restores the exact remote annotated
+tag object after checkout; it never changes the remote tag. Complete recovery before
+advancing main after an initial cut, since first-cut ancestry checks require the
+current default branch.
 Matching assets are preserved; a partial draft can receive only missing assets.
 A published complete release is an idempotent success when all bytes match.
 Different bytes, unexpected files, missing targets or a moved tag fail closed:
@@ -139,8 +146,10 @@ prepare a new version/tag rather than using asset overwrite or tag force-push.
 
 ## Current readiness
 
-The release owner selected the tested, checked-in Go implementation for stable
-1.0.0 publication. Every cut still requires exact-revision native tests, packaged
+[Stable 1.0.0](https://github.com/lesserevil/trove/releases/tag/v1.0.0)
+publishes the tested, checked-in Go implementation with all five archives and
+SHA256SUMS. Native and exact packaged validation and published download verification
+pass in [Release run 37421028777](https://github.com/lesserevil/trove/actions/runs/37421028777). Every cut still requires exact-revision native tests, packaged
 CLI validation on all five targets and checksum verification of published downloads.
 [ADOPT-002](../roadmap/active-work.md#adopt-002) retains Literate AI source admission
 and independent regeneration as separate follow-up work. Publication does not
