@@ -7,7 +7,10 @@ need a language runtime, Make, a shell helper, or an external crypto command.
 GPG may be used once to export an existing identity for import.
 
 Ship Linux x86_64 and aarch64, Windows x86_64 and aarch64, and macOS aarch64
-release binaries. Make is a contributor build/test convenience.
+release binaries. Publish versioned five-target archives and checksums through
+GitHub tag CI, with persistent release/X.Y.x maintenance lines and immutable tags.
+The [release process](docs/user/releases.md) owns preparation and retry conventions.
+Make is a contributor build/test convenience.
 
 Literate AI currently wraps the retained Makefile application under
 `components/legacy-project-wrapper/implementation/`. That application remains
