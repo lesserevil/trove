@@ -14,9 +14,14 @@ Source admission and independent regeneration remain open. The retained client h
 
 - [Getting started and current prerequisites](docs/user/getting-started.md)
 - [Project guide](docs/README.md)
+- [Release process and binary downloads](docs/user/releases.md)
 - [Active roadmap](docs/roadmap/active-work.md)
 - [Security remediation and binary release plan](docs/roadmap/security-remediation.md)
 
 Contributors can inspect the adopted project with `litai status` and validate
 its authority with `litai project validate`. The retained integration suite is
 available through `make -f litai.harness.mk test`.
+
+## Release Engineers
+
+- `lesserevil`

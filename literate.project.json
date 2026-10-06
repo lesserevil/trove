@@ -45,7 +45,7 @@
     "framework_distribution_identity": {
       "schema": "urn:literate-ai:schema:v1:content-identity",
       "algorithm": "sha256",
-      "digest": "0ae6a20a3995695f1982c077a6b08be1c8e36e7c332ee039b7e796901a3a180f"
+      "digest": "cca246b0567deca2ef368c860ad4e73ef47d91ac2969dc72c5992f5ab5692c8f"
     },
     "policy_identity": {
       "schema": "urn:literate-ai:schema:v1:content-identity",

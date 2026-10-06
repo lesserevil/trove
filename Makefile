@@ -19,3 +19,12 @@ clean:
 	$(MAKE) -C "$(NATIVE_SOURCE)" clean OBJECT_ROOT="$(NATIVE_OBJECTS)"
 retained-test:
 	$(MAKE) -f litai.harness.mk test
+
+# Local release gates; GitHub tag CI supplies the other four native runtimes.
+.PHONY: release-check release-check-candidate release-tooling-test
+release-check:
+	python3 scripts/release.py check
+release-check-candidate:
+	python3 scripts/release.py check --candidate
+release-tooling-test:
+	python3 scripts/release.py test

@@ -1,0 +1,49 @@
+name: Release
+on:
+  push:
+    tags: ['v*']
+permissions:
+  contents: read
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  metadata:
+    name: Validate release tag and notes
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 5
+    outputs:
+      version: ${{ steps.release.outputs.version }}
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - id: release
+        run: python scripts/release.py metadata
+  validate:
+    needs: metadata
+    uses: ./.github/workflows/validate.yml
+    with:
+      version: ${{ needs.metadata.outputs.version }}
+      artifact-name: release-packages
+  publish:
+    name: Publish exact validated archives
+    needs: [metadata, validate]
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: release-packages
+          path: _build/releases
+      - name: Verify and publish immutable assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python scripts/release.py publish

@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- Release tooling: add maintenance lines, immutable version tags and GitHub release
+  CI for all five standalone binary targets. Publication verifies the exact tested
+  archives and supports partial-upload retries without replacing released bytes.
+  Stable publication retains the native qualification gate.
+
+- Project tooling: use Litai 1.1.0 built from the pinned jordanhubbard/literate-ai
+  upstream revision and rebind the Standard lifecycle through Litai's reviewed plan.
+
 - Trove Windows: replace failing Win32 ACL-handle reopens with verified NT
   handle-relative opens, normalize current-user ownership and retain protected
   owner/System permissions. Added file and directory name-replacement regressions.

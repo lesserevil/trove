@@ -13,9 +13,18 @@ build commands, migration and current qualification limits.
 The [retained boundary inventory](architecture/retained-boundaries.md) maps the
 existing application to its future Components, Flavors, assets and contributor tests.
 
+See [binary releases](user/releases.md) for maintenance branches, tags, CI and recovery.
+
 ## Development
 
-This project is built with [Literate AI](https://github.com/NVIDIA-dev/literate-ai).
+This project is built with [Literate AI](https://github.com/jordanhubbard/literate-ai).
+The current Standard lifecycle binding uses a non-editable Litai 1.1.0 installation
+built from upstream commit `44b690aebbbfc7cc8db290a26fb1608643d95c10`.
+To reproduce it, check out that exact commit in the upstream repository and run
+its `make install` target. The default user launcher is `~/.local/bin/litai`.
+`literate.project.json` pins the installed distribution's content identity;
+future installation changes require the reviewed
+`litai project lifecycle rebind-standard` plan/apply flow.
 The [framework flow](user/framework-flow.md) explains the specification-led lifecycle,
 and the [project map](user/project-layout.md) identifies the authority for a change.
 

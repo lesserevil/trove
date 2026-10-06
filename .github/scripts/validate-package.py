@@ -1,6 +1,7 @@
 """Contributor CI helper: verify an archive and test its exact executable."""
 import hashlib
 import os
+import platform
 from pathlib import Path
 import subprocess
 import tarfile
@@ -8,7 +9,7 @@ import tempfile
 import zipfile
 
 root = Path(__file__).resolve().parents[2]
-packages = root / '_build' / 'releases'
+packages = Path(os.environ.get('TROVE_PACKAGE_DIR', root / '_build' / 'releases'))
 label = os.environ['TROVE_TARGET_LABEL']
 labels = {'linux_x86_64', 'linux_aarch64', 'windows_x86_64',
           'windows_aarch64', 'macos_aarch64'}
@@ -46,6 +47,13 @@ with tempfile.TemporaryDirectory(prefix='trove-packaged-') as directory:
                 raise SystemExit('Nonregular archive member')
             binary.write_bytes(contents.extractfile(executable).read())
     binary.chmod(0o700)
+    if os.environ.get('TROVE_PACKAGE_VERSION'):
+        systems = {'Linux': 'linux', 'Darwin': 'darwin', 'Windows': 'windows'}
+        arch = 'arm64' if label.endswith('aarch64') else 'amd64'
+        observed = subprocess.check_output([str(binary), '--version'], text=True).strip()
+        expected_version = f"trove {os.environ['TROVE_PACKAGE_VERSION']} {systems[platform.system()]}/{arch}"
+        if observed != expected_version:
+            raise SystemExit('Packaged binary version or architecture mismatch')
     env = dict(os.environ, TROVE_TEST_BINARY=str(binary))
     subprocess.run(['go', 'test', '-mod=readonly', '-count=1', './tests'],
                    cwd=root / 'generated' / 'trove' / 'source', env=env, check=True)

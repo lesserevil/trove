@@ -284,3 +284,80 @@ release-visible outcome to `CHANGELOG.md`; Git preserves prior queue states.
   fast-forwarded to that commit. No review comments were outstanding.
   Source admission, independent regeneration and GitHub CBC+HMAC migration remain
   open under ADOPT-002; this completion does not claim a release or authority transfer.
+
+### [x] TOOL-001 — Use upstream GitHub Litai installation
+
+- **Priority:** P1
+- **Owner:** project lifecycle binding / operator Litai installation
+- **Direction:** Use the Litai installation from https://github.com/jordanhubbard/literate-ai.
+- **Conclusion:** Install a pinned upstream revision through its supported host installer, then rebind Trove Standard lifecycle authority using the reviewed tool plan and verify compatibility.
+- **Depends on:** none
+- **Implementation:**
+  - [x] Install upstream Litai at an exact Git revision.
+  - [x] Apply the reviewed Standard lifecycle rebind and reconcile required project metadata.
+- **Evidence:**
+  - [x] Installed Litai provenance names the requested upstream revision.
+  - [x] Trove verification passes with the upstream installation, or exact remaining incompatibilities are recorded.
+
+- **Completion evidence:** The installed non-editable Litai 1.1.0 wheel embeds
+  repository origin `https://github.com/jordanhubbard/literate-ai` and revision
+  `44b690aebbbfc7cc8db290a26fb1608643d95c10`. Upstream `make install` replaced
+  the user-local installation; the previous environment is preserved for rollback.
+  The reviewed Standard rebind changes only the distribution identity to
+  `sha256:cca246b0567deca2ef368c860ad4e73ef47d91ac2969dc72c5992f5ab5692c8f`.
+  A fresh synthetic retained run passes 26 cases and refreshes
+  `verification/current.json`; `litai verify` passes authority, both locks and
+  the current receipt. Unconfigured source-intelligence and HTML gates skip.
+  `pip check` reports no broken requirements. The native candidate is unchanged;
+  ADOPT-002 admission and regeneration gates remain open. Broader template
+  reconciliation is separate and its read-only plan preserves local conflicts.
+
+### [x] REL-001 — Add versioned binary releases and GitHub CI
+
+- **Priority:** P1
+- **Owner:** release policy / GitHub Actions / contributor release tooling
+- **Direction:** Add a release process with CI, borrowing Trickle release branches, immutable tags and gated publication.
+- **Conclusion:** Use release/X.Y.x maintenance lines and annotated vX.Y.Z or numbered prerelease tags; validate the exact versioned five-archive set on native runners before creating a GitHub Release. Add process and regression tests without publishing a release or closing native admission gates.
+- **Depends on:** none
+- **Implementation:**
+  - [x] Document release branch, tag, preparation, backport and retry conventions and replace the sample release gate.
+  - [x] Share native binary validation between ordinary CI and tag-triggered release CI.
+  - [x] Validate version and branch provenance, checksums, release notes and immutable publication.
+- **Evidence:**
+  - [x] Regression tests reject invalid tags, versions, branch ancestry, incomplete assets and replacement of published assets.
+  - [x] Local release tooling checks, native package smoke and Litai verification pass; publication remains unexecuted.
+
+- **Process evidence:** `scripts/release.py test` passes 25 synthetic release tests.
+  Fixtures cover actor restrictions, annotated tag/version/branch provenance,
+  first-cut main ancestry, stable qualification, package inventories, candidate
+  tag creation on an exact green pushed commit, immutable retries and refusal to
+  replace published bytes. `actionlint` 1.7.12 accepts CI, reusable validation and
+  Release workflows. The publication inventory matches the authored target matrix.
+- **Completion evidence:** `make release-check-candidate` passes on macOS arm64:
+  module verification, static analysis, all native suites, synthetic GPG
+  interoperability, all five versioned archive builds, exact inventory/checksums,
+  embedded version/architecture check and the packaged CLI suite. `litai verify`
+  passes authority, both current locks and a fresh retained 26-case receipt;
+  unconfigured source-intelligence and HTML gates skip. The stable gate deliberately
+  rejects the retained conversion stage, preserving ADOPT-002 qualification.
+  The project remains Free. No real release branch, tag or GitHub Release was
+  created, and new hosted tag publication is not claimed as executed.
+- **Tool boundary:** The installed Litai RC command requires a GitHub provider
+  and Python wheel publication. Trove instead uses its project-owned candidate-tag
+  helper; Litai still owns stable plan/prepare/check/Git publication, and tag CI owns
+  GitHub binary assets. No framework source is patched.
+
+### [ ] REL-002 — Publish initial 1.0.0 release
+
+- **Priority:** P1
+- **Owner:** Release policy and ADOPT-002 conversion authority
+- **Direction:** Publish a stable 1.0.0 GitHub release for all five supported platforms.
+- **Conclusion:** Complete genuine native admission and independent qualification, land the release process, then cut and verify the immutable release line and tag using exact versioned CI artifacts.
+- **Depends on:** ADOPT-002, REL-001
+- **Implementation:**
+  - [ ] Resolve native source admission and independent regeneration without bypassing qualification.
+  - [ ] Land release tooling, prepare release/1.0.x and annotated v1.0.0, and publish through green hosted validation.
+- **Evidence:**
+  - [ ] Qualified conversion authority and current admitted-source evidence.
+  - [ ] Green exact-revision native and packaged validation for all five targets.
+  - [ ] Remote immutable tag and stable GitHub Release with five archives and SHA256SUMS verified.
