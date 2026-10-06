@@ -367,3 +367,8 @@ release-visible outcome to `CHANGELOG.md`; Git preserves prior queue states.
   [run 37402636392](https://github.com/lesserevil/trove/actions/runs/37402636392).
 - **Release-owner clarification:** Publish the Go implementation as stable 1.0.0.
   Admission and regeneration are follow-up work, not product publication gates.
+
+- **Publication recovery:** Actions checkout refetched the peeled tag commit over
+  its local annotated ref. Preserve remote `v1.0.0` and its original source commit;
+  repair orchestration to fetch the exact tag object and explicitly bind all
+  build/test jobs to its revision. Add manual recovery for the existing tag.

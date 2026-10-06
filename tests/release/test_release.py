@@ -101,6 +101,19 @@ class ReleaseTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'Remote tag'):
             r.metadata(root, 'v1.2.0', 'fixture')
 
+    def test_restore_annotated_tag_after_checkout_peels_it(self):
+        root, git = self.fixture()
+        tag_object = git('rev-parse', 'refs/tags/v1.2.0')
+        revision = git('rev-parse', 'refs/tags/v1.2.0^{commit}')
+        git('update-ref', 'refs/tags/v1.2.0', revision)
+        self.assertEqual(git('cat-file', '-t', 'refs/tags/v1.2.0'), 'commit')
+        with self.assertRaisesRegex(ValueError, 'annotated'):
+            r.metadata(root, 'v1.2.0', 'fixture')
+        git('fetch', '--force', '--no-tags', 'origin',
+            'refs/tags/v1.2.0:refs/tags/v1.2.0')
+        self.assertEqual(git('rev-parse', 'refs/tags/v1.2.0'), tag_object)
+        self.assertEqual(r.metadata(root, 'v1.2.0', 'fixture')['revision'], revision)
+
     def test_stable_go_release_preserves_conversion_state(self):
         root, _ = self.fixture(qualified=False)
         authority = root / '.literate/conversion-authority.json'
