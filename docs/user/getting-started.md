@@ -6,43 +6,29 @@ Trove stores encrypted secrets and per-user public-key envelopes in a Git-friend
 folder structure. Keep your team's store in its own private repository; the
 checked-in store is an example.
 
-## Current application
+## Binary installation
 
-Literate AI adoption preserved the existing application under
-`components/legacy-project-wrapper/implementation/`, including its Makefile,
-public registrations, encrypted examples, tests, and ignored local GPG directory.
-There is no released Go binary yet. The
-[security remediation roadmap](../roadmap/security-remediation.md) owns the seven
-known findings and the replacement's installation and release work.
+Download the versioned archive for Linux x86_64/aarch64, Windows x86_64/aarch64,
+or macOS aarch64 and SHA256SUMS from
+[GitHub Releases](https://github.com/lesserevil/trove/releases). Verify the archive's
+SHA256 checksum, extract `trove` (`trove.exe` on Windows) and place it on PATH.
+The executable embeds OpenPGP and needs no installed Go, Python, Make, shell,
+GPG or OpenSSL for normal operations. GPG is optional for exporting an existing
+identity once. See [binary releases](releases.md) for archive names and checks.
 
-The retained application requires Make, GnuPG 2.x, OpenSSL, Bash 4 or newer, and
-xxd. From the repository root, inspect its commands with:
+Run `trove --help`, then follow the [native client guide](native-client.md) for
+store initialization, personal identities, secret access and explicit migration.
+Private identities live in a protected personal directory outside the store.
+Legacy GitLab CBC migration has synthetic acceptance; historical GitHub CBC/HMAC
+migration remains unqualified. Installation does not migrate existing stores.
 
-```console
-make -C components/legacy-project-wrapper/implementation help
-```
+## Retained implementation
 
-The command prints the available Make targets. Refer to
-`components/legacy-project-wrapper/implementation/README.md`
-for the existing interface and store layout; its security claims are qualified by
-[the reviewed findings](../roadmap/security-remediation.md#scope-and-priorities).
-The containment change replaces `test-crypto` cleanup with a private allocation;
-see its [isolation contract](../architecture/smoke-test-contract.md). Current full
-qualification now passes all 26 cases with fresh retained evidence;
-the [active queue](../roadmap/active-work.md#adopt-002) records that evidence limit.
-
-## Planned binary installation
-
-Download and extract one `trove` executable (`trove.exe` on Windows) for Linux
-x86_64/aarch64, Windows x86_64/aarch64, or macOS aarch64. The planned binary embeds
-OpenPGP and requires no separately installed language runtime or crypto tools.
-GPG is optional for exporting an existing identity once. Downloads are not yet
-published; archive names, checksums, compatibility, and runtime tests are specified
-in the [release matrix](../roadmap/security-remediation.md#binary-distribution-and-dependency-checks).
-
-Private identities will live in a protected personal directory outside the store.
-Existing CBC content requires the explicit migration described in the roadmap;
-adoption has not changed stored keys or ciphertext.
+The old Make application remains under
+`components/legacy-project-wrapper/implementation/` for conversion evidence and
+recovery. It requires Make, GnuPG 2.x, OpenSSL, Bash 4 or newer and xxd. Its known
+findings are recorded in the [security remediation roadmap](../roadmap/security-remediation.md).
+Those contributor prerequisites are not runtime requirements for the released binary.
 
 ## Contributor workflow
 
@@ -54,8 +40,8 @@ litai lock --check
 litai verify
 ```
 
-The adopted Component retains the original source; no hello sample or native Go
-implementation was generated. `litai status` reports current evidence and the next
+The adopted Component retains the original source; the tested Go implementation
+is separately checked in under `generated/trove/source`. `litai status` reports current evidence and the next
 lifecycle step. Run the retained integration suite through the wrapper with:
 
 ```console

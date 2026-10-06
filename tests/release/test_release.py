@@ -101,10 +101,13 @@ class ReleaseTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'Remote tag'):
             r.metadata(root, 'v1.2.0', 'fixture')
 
-    def test_stable_requires_qualified_authority(self):
+    def test_stable_go_release_preserves_conversion_state(self):
         root, _ = self.fixture(qualified=False)
-        with self.assertRaisesRegex(ValueError, 'qualified'):
-            r.metadata(root, 'v1.2.0', 'fixture')
+        authority = root / '.literate/conversion-authority.json'
+        before = authority.read_bytes()
+        release = r.metadata(root, 'v1.2.0', 'fixture')
+        self.assertFalse(release['prerelease'])
+        self.assertEqual(authority.read_bytes(), before)
 
     def test_candidate_is_explicit_prerelease(self):
         root, _ = self.fixture(tag='v1.2.0-draft.1', qualified=False)

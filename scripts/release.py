@@ -41,19 +41,10 @@ def notes(changelog, version, base, prerelease):
         if m and m[1].strip():
             text = m[1].strip() + '\n'
             if prerelease:
-                text = ('Candidate prerelease: native source admission and independent '
-                        'regeneration must be completed before stable publication.\n\n' + text)
+                text = ('Candidate prerelease: validate the exact packaged binaries '
+                        'before promoting a stable release.\n\n' + text)
             return text
     raise ValueError('No nonempty authored changelog section for the release version')
-
-
-def require_qualified(root):
-    state = json.loads((root / '.literate/conversion-authority.json').read_text())
-    if (state.get('schema') != 'literate-ai/conversion-authority@1'
-            or state.get('project_id') != 'trove' or state.get('stage') != 'qualified'
-            or state.get('release_authority') != 'specification'
-            or not state.get('evidence_identities')):
-        raise ValueError('Stable native release requires qualified conversion authority; complete ADOPT-002 first')
 
 
 def metadata(root, tag, actor, expected_sha=None):
@@ -89,7 +80,6 @@ def metadata(root, tag, actor, expected_sha=None):
         if not on_main_rc:
             raise ValueError('Tag is outside its maintenance line (or exact main RC revision)')
     if not result['prerelease']:
-        require_qualified(root)
         if result['base'].endswith('.0'):
             run(['git', 'merge-base', '--is-ancestor', 'refs/remotes/origin/main', head], root)
     result['revision'] = head
@@ -179,8 +169,6 @@ def publish(root, release, directory, repository):
 def local_check(candidate=False):
     version = json.loads((ROOT / 'literate.project.json').read_text())['version']
     info = parse_tag('v' + version)
-    if not candidate and not info['prerelease']:
-        require_qualified(ROOT)
     verification = json.loads(run(['litai', 'verify']))
     if not verification.get('result', {}).get('ok'):
         raise ValueError('Litai verification failed')

@@ -14,12 +14,13 @@ Make is a contributor build/test convenience.
 
 Literate AI currently wraps the retained Makefile application under
 `components/legacy-project-wrapper/implementation/`. That application remains
-source authority until independently qualified replacements are accepted. Adoption
+source authority for the Literate AI conversion until independently qualified
+replacements are accepted. Stable binary releases publish the tested checked-in
+Go implementation separately from that conversion process. Adoption
 does not transfer authority to the Go rewrite or migrate stored secrets. The Go
-candidate is implemented under `generated/trove/source`; embedded OpenPGP builds and
-the full macOS native/GPG suites pass. Five candidate archives are built; source
-admission, independent acceptance and regeneration remain open. Five-target native
-and packaged runtime qualification is tracked in the active work queue.
+implementation is checked in under `generated/trove/source`. Native and packaged
+CLI suites pass on all five target runtimes, with synthetic GPG interoperability.
+Source admission and independent regeneration remain open in the active queue.
 
 The [active work queue](docs/roadmap/active-work.md) owns execution. The
 [security remediation plan](docs/roadmap/security-remediation.md) owns the agreed

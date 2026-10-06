@@ -53,3 +53,12 @@ The rewrite is complete only when every retained boundary has either transferred
 qualified native Component or is documented as intentionally retained, the full E2E
 workflow matches the Phase 1.2 baseline, and `components/legacy-project-wrapper/implementation` contains no
 unclassified remainder.
+
+## Release-owner clarification (2026-10-06)
+
+The owner explicitly selected the tested checked-in Go implementation for stable
+1.0.0 binary publication. The authority-transfer program above remains open and
+does not gate product releases. Native CI and exact package validation govern
+published binaries; no release claims regenerative qualification or changes the
+conversion-authority projection. Retained implementations remain available for
+conversion evidence and recovery.

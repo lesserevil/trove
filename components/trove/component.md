@@ -32,9 +32,11 @@ source_dependencies: []
 ---
 # Trove native CLI
 
-This specification owns the replacement candidate. The retained application remains
-authority until independent and regenerative qualification; no checked-in ciphertext
-or personal identity may be read or migrated by generation or tests.
+This specification owns native CLI behavior. The release owner selected the tested,
+checked-in Go implementation for stable binary publication. Literate AI source
+admission and regenerative authority transfer remain separate follow-up work;
+publication does not claim them. No checked-in ciphertext or personal identity may
+be read or migrated by generation or tests.
 
 ### Requirement: Literal offline command interface
 

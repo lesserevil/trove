@@ -1,14 +1,14 @@
 # Project guide
 
 Trove is a small, Git-friendly secret store with per-user public-key access.
-The existing Makefile application is retained while the roadmap replaces it with
-one self-contained Go executable and fixes seven security findings. See the
+The application ships as one self-contained Go executable with embedded OpenPGP.
+The existing Makefile implementation is retained for conversion evidence and recovery. See the
 project goals in root `PROJECT.md` and the [security remediation plan](roadmap/security-remediation.md)
 for the agreed behavior and five-platform binary release matrix.
 
 Start with [getting started](user/getting-started.md) for installation and usage.
 See [active work](roadmap/active-work.md) for current development status.
-The [native client candidate](user/native-client.md) describes the new Go CLI,
+The [native client](user/native-client.md) describes the new Go CLI,
 build commands, migration and current qualification limits.
 The [retained boundary inventory](architecture/retained-boundaries.md) maps the
 existing application to its future Components, Flavors, assets and contributor tests.

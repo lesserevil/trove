@@ -1,13 +1,11 @@
-# Native Trove candidate
+# Native Trove
 
-The Go replacement candidate is checked in under `generated/trove/source` as a
-derived source snapshot so contributors can build this branch. It is not yet
-admitted or released: source admission and independent regeneration remain open.
-GitHub Actions tests all five native targets and their packaged executables; see
-the [active work queue](../roadmap/active-work.md) for platform results.
-The native suite and synthetic GPG interoperability pass on macOS arm64.
-Store/format tests are separate from full crypto and target qualification. Keep
-using encrypted backups; do not run this candidate on real secrets yet.
+Trove releases publish the tested Go implementation checked in under
+`generated/trove/source`. Download the archive for your target and SHA256SUMS from
+[GitHub Releases](https://github.com/lesserevil/trove/releases), verify the checksum
+and extract the executable. Native and exact packaged CLI tests pass on all five
+supported targets. Literate AI source admission and independent regeneration
+remain separate follow-up work in the [active queue](../roadmap/active-work.md).
 
 ## Contributor build
 
@@ -30,9 +28,9 @@ The helper collects the linked modules' license texts into LICENSE and
 THIRD_PARTY_NOTICES without inventing a license for this application. Pass
 `--license` to the helper if supplying an authored application license.
 
-## Candidate command interface
+## Command interface
 
-Once qualified, extract the executable for your OS and architecture. On Windows
+Extract the executable for your OS and architecture. On Windows
 use `trove.exe`. No installed Go, Python, Make, shell, GPG or OpenSSL is required
 to run it. It never launches those tools and never downloads anything.
 
